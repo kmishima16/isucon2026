@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make *)",
+      "Bash(git *)",
+      "Bash(ssh *)",
+      "Bash(rsync *)",
+      "Bash(isuenv list)",
+      "Bash(isuenv bench *)",
+      "Bash(isuenv problems)"
+    ],
+    "deny": [
+      "Bash(make up)",
+      "Bash(make up *)",
+      "Bash(make down)",
+      "Bash(make down *)",
+      "Bash(isuenv up *)",
+      "Bash(isuenv down *)",
+      "Bash(isuenv nuke*)",
+      "Bash(aws *)",
+      "Bash(git push*)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean *)"
+    ]
+  }
+}
