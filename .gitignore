@@ -1,5 +1,7 @@
 logs/*
 !logs/.gitkeep
 .lock/
+.tools/
+pprotein/
 .claude/settings.local.json
 .DS_Store

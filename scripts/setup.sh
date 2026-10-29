@@ -23,6 +23,44 @@ if ! command -v alp >/dev/null; then
 fi
 for t in alp pt-query-digest htop dstat; do printf '  %-16s %s\n' "$t" "$(command -v $t || echo '-')"; done
 REMOTE
+  if [ -n "${PPROTEIN_AGENT_PORT:-}" ]; then
+    info "[$h] pprotein-agent"
+    rsh "$h" "sudo PP_VERSION=${PPROTEIN_VERSION#v} PP_PORT=$PPROTEIN_AGENT_PORT PP_HTTPLOG=$NGINX_LOG PP_SLOWLOG=$SLOW_LOG bash -s" <<'REMOTE'
+set -euo pipefail
+# 入っている版と違うときだけ入れ直す
+if [ "$(cat /usr/local/share/pprotein-agent.version 2>/dev/null)" != "$PP_VERSION" ]; then
+  tmp="$(mktemp -d)"
+  curl -fsSL --max-time 120 "https://github.com/kaz/pprotein/releases/download/v${PP_VERSION}/pprotein_${PP_VERSION}_linux_$(dpkg --print-architecture).tar.gz" \
+    | tar xz -C "$tmp" pprotein-agent
+  install -m 755 "$tmp/pprotein-agent" /usr/local/bin/pprotein-agent
+  mkdir -p /usr/local/share && echo "$PP_VERSION" > /usr/local/share/pprotein-agent.version
+  rm -rf "$tmp"
+fi
+cat > /etc/systemd/system/pprotein-agent.service <<UNIT
+[Unit]
+Description=pprotein-agent (isucon-kit)
+After=network.target
+
+[Service]
+Environment=PORT=$PP_PORT
+Environment=PPROTEIN_HTTPLOG=$PP_HTTPLOG
+Environment=PPROTEIN_SLOWLOG=$PP_SLOWLOG
+ExecStart=/usr/local/bin/pprotein-agent
+Restart=always
+# 認証が無いので、この台の localhost（ssh トンネルの出口）からの接続だけを受ける。
+# ファイアウォールには触らず、このサービスだけに効く systemd の機能で絞る
+IPAddressAllow=localhost
+IPAddressDeny=any
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable -q pprotein-agent
+systemctl restart pprotein-agent
+printf '  %-16s %s (port %s)\n' pprotein-agent "$(systemctl is-active pprotein-agent)" "$PP_PORT"
+REMOTE
+  fi
   if [ -n "${SETUP_CMD:-}" ]; then
     info "[$h] SETUP_CMD"
     rsh "$h" "sudo bash -c $(printf %q "$SETUP_CMD")"

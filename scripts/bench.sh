@@ -14,6 +14,8 @@ prebench() {
   rsh "$NGINX_HOST" "sudo truncate -s0 $NGINX_LOG 2>/dev/null || true"
   rsh "$DB_HOST" "sudo truncate -s0 $SLOW_LOG 2>/dev/null || true"
   info "計測ログを空にしました"
+  # pprotein はここから PPROTEIN_SECONDS 秒の分を集めるので、ベンチの直前に始める
+  if [ -n "${PPROTEIN_AGENT_PORT:-}" ]; then bash "$ROOT/scripts/pprotein.sh" collect; fi
 }
 
 case "${1:-bench}" in

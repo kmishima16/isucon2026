@@ -9,6 +9,7 @@ Webアプリのパフォーマンスチューニング（ISUCON形式）を、�
 - サーバーに置く設定ファイルは `server/all/<絶対パス>`（全台）か `server/<ホスト名>/<絶対パス>`（その台だけ）。既存の設定を変えるときは `make pull F=/etc/...` で取り込んでから編集する。
 - DB のスキーマ変更は `sql/NNN_*.sql`（何度流しても壊れない形で）。
 - 操作は `make help` を参照。
+- 計測の結果は `logs/`（make analyze）と `pprotein/data/`（make pp-up 中。画面は http://localhost:9000、API は `/api/httplog`・`/api/slowlog`・`/api/pprof`）にある。
 
 ## 自由にやってよいこと
 

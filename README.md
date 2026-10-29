@@ -66,6 +66,24 @@ make up && make setup && make deploy    # 前回の最終コミットの状態�
 - 良かった版に戻す：`make best` → `make deploy REV=<rev>`
 - おかしい：`make doctor`
 
+## pprotein（計測を画面とファイルで見る）
+
+ベンチごとの alp・スロークエリーの集計（slp）・pprof を、ブラウザの画面と `pprotein/data/` のファイルの両方に残す。Claude はファイルか API を読めばよい。
+
+```bash
+make setup     # 各台に pprotein-agent を入れる（isu.env の PPROTEIN_AGENT_PORT が空なら入れない）
+make deploy    # LTSV のアクセスログ（server/all/etc/nginx/conf.d/isu-log.conf）を反映
+make pp-up     # Mac で pprotein を起動し、各台へ ssh トンネルを張る（初回は pprotein・alp・slp を .tools/ にダウンロード）
+make bench     # prebench が PPROTEIN_SECONDS 秒の収集を始める（ポータルのときは make prebench → ポータル）
+open http://localhost:9000
+```
+
+- 各台の pprotein-agent は認証が無いので、systemd の `IPAddressAllow=localhost` で、その台の localhost（ssh トンネルの出口）からしか受けない。
+- Mac の pprotein も認証が無く、Mac の全インターフェースで待ち受ける。外の Wi-Fi では `make pp-down` しておく。
+- アプリの pprof は、アプリに入れたときだけ集める（`PPROTEIN_PPROF_PORT`）。Go なら `net/http/pprof` を `127.0.0.1:6060` で待ち受ける。DB 待ちも見たいなら fgprof（`github.com/felixge/fgprof`）を `/debug/fgprof` に足し、`PPROTEIN_PPROF_PATHS` に加える。
+- 最終計測の前に `make pp-agent-off`（再起動しても起きない）。
+- 未検証: pprotein v1.2.4（2024-11 が最後）が今の alp・slp で動くか。private-isu で確かめる。
+
 ## トラブルに強くしてある点
 
 | 起きがちなこと | キットの対応 |
@@ -88,7 +106,7 @@ make up && make setup && make deploy    # 前回の最終コミットの状態�
 `isu.env` を書き換える：`ENV=""`、`HOSTS` を `~/.ssh/config` に書いた3台の名前に、アプリの場所・サービス名・DB 接続、`BENCH_CMD=""`（ベンチはポータルから）。
 ベンチは「`make prebench` → ポータルで実行 → `make analyze` → `make score S=<点数>`」。
 
-最終盤は計測を外す：`server/all/etc/nginx/conf.d/isu-log.conf` を消し、`isu-slow.cnf` を `slow_query_log = 0` にして commit → deploy → `make reboot-test` → ベンチで確認。
+最終盤は計測を外す：`server/all/etc/nginx/conf.d/isu-log.conf` を消し、`isu-slow.cnf` を `slow_query_log = 0` にして commit → deploy → `make pp-agent-off` → `make reboot-test` → ベンチで確認。
 
 ## 初回に合わなければ直すところ
 

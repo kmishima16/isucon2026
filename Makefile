@@ -1,6 +1,6 @@
 # すべての操作の入口。設定は isu.env。   make help
 SHELL := /bin/bash
-.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status reboot-test
+.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status reboot-test pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on
 
 help: ## このヘルプ
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-12s %s\n",$$1,$$2}'
@@ -44,3 +44,17 @@ best: ## 記録したスコアの上位（良かったコミットを探す）
 	@awk -F'\t' 'NR>1' notes/scores.tsv | sort -t$$'\t' -k4,4nr | head -n $${N:-10} | awk -F'\t' '{printf "%-16s %-10s %-6s %10s  %s\n",$$1,$$2,$$3,$$4,$$5}'
 reboot-test: ## 全台を再起動して、何もせずに復帰するか確認
 	bash scripts/reboot-test.sh
+
+# --- pprotein（計測を画面とファイルで見る。Mac で動かす） ---
+pp-up: ## pprotein を起動し、各台への ssh トンネルと収集先を設定（画面 http://localhost:9000）
+	bash scripts/pprotein.sh up
+pp-collect: ## pprotein の収集を手で始める（make prebench からも自動で呼ばれる）
+	bash scripts/pprotein.sh collect
+pp-status: ## pprotein とトンネルの状態、登録した収集先
+	bash scripts/pprotein.sh status
+pp-down: ## pprotein とトンネルを止める（データは pprotein/data/ に残る）
+	bash scripts/pprotein.sh down
+pp-agent-off: ## 各台の pprotein-agent を止める（最終計測の前）
+	bash scripts/pprotein.sh agent-off
+pp-agent-on: ## 各台の pprotein-agent を戻す
+	bash scripts/pprotein.sh agent-on
