@@ -32,16 +32,16 @@ deploy: ## コミットをサーバーへ反映（未コミットなら拒否）
 	bash scripts/deploy.sh
 prebench: ## 計測ログを空にする（本番でポータルからベンチする前）
 	bash scripts/bench.sh prebench
-bench: ## prebench → ベンチ → スコア記録（PROFILE=1 で pprof・fgprof も）
+bench: ## prebench → ベンチ → スコア記録（E="期待した動き" を一緒に残す。PROFILE=1 で pprof・fgprof も）
 	bash scripts/bench.sh bench
 prof: ## pprof の CPU プロファイルを取る（ベンチ実行中に）
 	bash scripts/prof.sh
 analyze: ## 直前のベンチの alp / pt-query-digest / pprof / vmstat / pidstat / memcached を集計して logs/ に保存
 	bash scripts/analyze.sh
-score: ## スコアを手で記録  make score S=12345 [M=メモ]
+score: ## スコアを手で記録  make score S=12345 [M=メモ] [E=期待した動き]
 	bash scripts/bench.sh score
 best: ## 記録したスコアの上位（良かったコミットを探す）
-	@awk -F'\t' 'NR>1' notes/scores.tsv | sort -t$$'\t' -k4,4nr | head -n $${N:-10} | awk -F'\t' '{printf "%-16s %-10s %-6s %10s  %s\n",$$1,$$2,$$3,$$4,$$5}'
+	@awk -F'\t' 'NR>1' notes/scores.tsv | sort -t$$'\t' -k4,4nr | head -n $${N:-10} | awk -F'\t' '{printf "%-16s %-10s %-6s %10s  %s%s\n",$$1,$$2,$$3,$$4,$$5,($$6!="" ? "  （期待: "$$6"）" : "")}'
 reboot-test: ## 全台を再起動して、何もせずに復帰するか確認
 	bash scripts/reboot-test.sh
 measure-show: ## 計測（アクセスログ・スローログ・pprof）が今どうなっているか

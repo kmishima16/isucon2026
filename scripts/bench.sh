@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 # make prebench : 計測ログを空にする（本番でポータルからベンチを回す前にも使う）
 # make bench    : prebench → BENCH_CMD → スコアを notes/scores.tsv に記録   （PROFILE=1 で pprof と fgprof も）
-# make score S=<点数> [M=メモ] : 手で記録（本番用）
+#                 E="期待した動き" で、施策の狙い（例: E="GET / の DB 待ちが消える"）を一緒に残す。M=メモ で memo を上書き
+# make score S=<点数> [M=メモ] [E=期待] : 手で記録（本番用）
 source "$(dirname "$0")/lib.sh"
 
 deployed() { cut -d' ' -f1 "$LOG_DIR/deployed" 2>/dev/null || echo '?'; }
-record() {   # pass score memo
-  [ -f notes/scores.tsv ] || printf 'time\trev\tpass\tscore\tmemo\n' > notes/scores.tsv
-  printf '%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed)" 2>/dev/null || true)}" >> notes/scores.tsv
-  info "記録: rev=$(deployed) pass=$1 score=$2"
+record() {   # pass score memo expect
+  local f=notes/scores.tsv
+  [ -f $f ] || printf 'time\trev\tpass\tscore\tmemo\texpect\n' > $f
+  # 列を足す前に作った scores.tsv は、見出しにだけ expect を足す（既存の行は空のまま）
+  if [ "$(head -1 $f | awk -F'\t' '{print NF}')" = 5 ]; then
+    { printf '%s\texpect\n' "$(head -1 $f)"; tail -n +2 $f; } > $f.tmp && mv $f.tmp $f
+  fi
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed)" 2>/dev/null || true)}" "${4:-}" >> $f
+  info "記録: rev=$(deployed) pass=$1 score=$2${4:+  期待: $4}"
 }
 # vmstat・pidstat・memcached の stats を、ベンチの間だけ各台で取る。analyze が回収して集計する
 start_sysstat() {
@@ -37,7 +43,7 @@ prebench() {
 
 case "${1:-bench}" in
   prebench) prebench ;;
-  score) record "${PASS:-true}" "${S:?S=<点数> を指定}" "${M:-}" ;;
+  score) record "${PASS:-true}" "${S:?S=<点数> を指定}" "${M:-}" "${E:-}" ;;
   bench)
     acquire_lock "bench"
     [ "$(deployed)" = "$(git rev-parse --short HEAD)" ] || warn "HEAD とデプロイ済み($(deployed))が違います。意図どおりですか？"
@@ -57,6 +63,6 @@ case "${1:-bench}" in
     PASS="$(grep -Eo '"pass":(true|false)' <<<"$RESULT" | cut -d: -f2 || true)"
     SCORE="$(grep -Eo '"score":-?[0-9]+' <<<"$RESULT" | cut -d: -f2 || true)"
     # 結果の形式が違う問題では手で記録する
-    if [ -n "$SCORE" ]; then record "${PASS:-?}" "$SCORE"; else warn "スコアを読み取れませんでした。make score S=<点数> で記録してください"; fi
+    if [ -n "$SCORE" ]; then record "${PASS:-?}" "$SCORE" "${M:-}" "${E:-}"; else warn "スコアを読み取れませんでした。make score S=<点数> で記録してください"; fi
     ;;
 esac
