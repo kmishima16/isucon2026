@@ -27,7 +27,8 @@ up() {
   [ -s "$D/initdb/00_seed.sql.gz" ] || die "部分ダンプがありません。先に make local-seed"
   # sql/*.sql（インデックスなど）を部分ダンプのあとに流す
   rm -rf "$D/initdb/sql" "$D"/initdb/10_*; mkdir -p "$D/initdb/sql"
-  cp "$ROOT"/sql/*.sql "$D/initdb/sql/" 2>/dev/null || info "sql/*.sql はありません"
+  local sqls; shopt -s nullglob; sqls=("$ROOT"/sql/*.sql); shopt -u nullglob
+  if [ ${#sqls[@]} -gt 0 ]; then cp "${sqls[@]}" "$D/initdb/sql/"; else info "sql/*.sql はありません"; fi
   cp "$L/apply-sql.sh" "$D/initdb/10_apply-sql.sh"
   # サーバーと同じサイト設定を、置き場所とアプリの宛先だけ差し替えて使う
   sed -e "s#${LOCAL_PUBLIC_REMOTE}/\{0,1\}#/public/#g" -e "s#${LOCAL_UPSTREAM}#app:8080#g" "$ROOT/$LOCAL_NGINX_SITE" > "$D/nginx.conf"
