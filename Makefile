@@ -1,6 +1,6 @@
 # すべての操作の入口。設定は isu.env。   make help
 SHELL := /bin/bash
-.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status reboot-test portal measure-on measure-off measure-show snapshot compare local-seed local-up local-down patrol pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on
+.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status lint reboot-test portal measure-on measure-off measure-show snapshot compare local-seed local-up local-down patrol pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on
 
 help: ## このヘルプ
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-12s %s\n",$$1,$$2}'
@@ -18,6 +18,9 @@ doctor: ## 何かおかしいときにまず実行（ssh・サービス・ディ
 	@bash scripts/doctor.sh
 status: ## アプリのログ（直近50行）
 	@bash -c 'source scripts/lib.sh; for h in $$APP_HOSTS; do rsh $$h "sudo journalctl -u $$SERVICE -n 50 --no-pager"; done'
+
+lint: ## スクリプトの書き間違いを実行前に見つける（構文・変数直後の全角文字・shellcheck）
+	@bash scripts/lint.sh
 
 # --- 準備 ---
 setup: ## 新しいサーバーに計測ツールを入れ、SETUP_CMD を実行（何度でも可）
