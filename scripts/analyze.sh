@@ -7,7 +7,7 @@ T="$(cat "$LOG_DIR/latest" 2>/dev/null || ts)"
 info "alp ($NGINX_HOST:$NGINX_LOG) 合計時間の降順"
 if rsh "$NGINX_HOST" "sudo test -s $NGINX_LOG"; then
   # alp は既定でアプリ側の時間（apptime）を読む。これまでの JSON と同じく、nginx が受けてから返すまでの時間（reqtime）で集計する
-  rsh "$NGINX_HOST" "sudo alp ltsv --apptime-label reqtime --file $NGINX_LOG --sort sum -r -m '$ALP_MATCH' -o count,method,uri,status,min,avg,max,sum" > "$LOG_DIR/$T-alp.txt"
+  rsh "$NGINX_HOST" "sudo alp ltsv --apptime-label reqtime --file $NGINX_LOG --sort sum -r -m '$ALP_MATCH' -o count,method,uri,2xx,3xx,4xx,5xx,min,avg,max,sum" > "$LOG_DIR/$T-alp.txt"
   head -n 30 "$LOG_DIR/$T-alp.txt"
 else
   warn "$NGINX_LOG が空です（access_log の設定、またはベンチ前に prebench したか確認）"
