@@ -1,6 +1,6 @@
 # すべての操作の入口。設定は isu.env。   make help
 SHELL := /bin/bash
-.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status reboot-test measure-on measure-off measure-show snapshot compare local-seed local-up local-down patrol pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on
+.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status reboot-test portal measure-on measure-off measure-show snapshot compare local-seed local-up local-down patrol pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on
 
 help: ## このヘルプ
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-12s %s\n",$$1,$$2}'
@@ -40,6 +40,8 @@ analyze: ## 直前のベンチの alp / pt-query-digest / pprof / vmstat / pidst
 	bash scripts/analyze.sh
 score: ## スコアを手で記録  make score S=12345 [M=メモ] [E=期待した動き]
 	bash scripts/bench.sh score
+portal: ## ポータルの結果を取り出して記録（本番用）  [WATCH=1] [E=期待した動き]
+	bash scripts/portal.sh
 best: ## 記録したスコアの上位（良かったコミットを探す）
 	@awk -F'\t' 'NR>1' notes/scores.tsv | sort -t$$'\t' -k4,4nr | head -n $${N:-10} | awk -F'\t' '{printf "%-16s %-10s %-6s %10s  %s%s\n",$$1,$$2,$$3,$$4,$$5,($$6!="" ? "  （期待: "$$6"）" : "")}'
 reboot-test: ## 全台を再起動して、何もせずに復帰するか確認

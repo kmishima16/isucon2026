@@ -3,3 +3,6 @@
 
 # isuenv（make up / list / bench）が使う AWS のプロファイル
 export AWS_PROFILE=
+
+# make portal がポータルの結果を取るときの Cookie（本番当日にブラウザの開発者ツールから人間が写す）
+export PORTAL_COOKIE=
