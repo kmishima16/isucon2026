@@ -1,0 +1,5 @@
+# 手元だけの環境変数。cp .envrc.example .envrc して書き換え、direnv allow する（.envrc は git に入れない）
+# Claude の Bash には direnv のフックが効かないので、Claude は direnv exec . make ... で実行する
+
+# isuenv（make up / list / bench）が使う AWS のプロファイル
+export AWS_PROFILE=
