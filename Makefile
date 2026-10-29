@@ -1,6 +1,6 @@
 # すべての操作の入口。設定は isu.env。   make help
 SHELL := /bin/bash
-.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status reboot-test measure-on measure-off measure-show snapshot compare local-seed local-up local-down pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on
+.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status reboot-test measure-on measure-off measure-show snapshot compare local-seed local-up local-down patrol pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on
 
 help: ## このヘルプ
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-12s %s\n",$$1,$$2}'
@@ -55,13 +55,15 @@ measure-off: ## 計測を外す設定に書き換えて commit → deploy（最�
 measure-on: ## 計測を戻す設定に書き換えて commit → deploy
 	bash scripts/measure.sh on
 
-# --- 手元（docker compose） ---
+# --- 手元（docker compose と Playwright） ---
 local-seed: ## サーバーから部分ダンプと静的ファイルを取る（最初の1回）
 	bash scripts/local.sh seed
 local-up: ## 手元の docker compose で起動（http://localhost:$$LOCAL_PORT）
 	bash scripts/local.sh up
 local-down: ## 手元の環境を止めて DB を消す
 	bash scripts/local.sh down
+patrol: ## Playwright で主な画面と操作を巡回  [TARGET=local|server]
+	bash scripts/local.sh patrol
 
 # --- pprotein（計測を画面とファイルで見る。Mac で動かす） ---
 pp-up: ## pprotein を起動し、各台への ssh トンネルと収集先を設定（画面 http://localhost:9000）

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# 手元の docker compose でアプリを動かす。
+# 手元の docker compose でアプリを動かし、Playwright で主な画面と操作を巡回する。
 #   make local-seed : サーバーから部分ダンプ（LOCAL_SEED）と静的ファイルを取る（最初の1回。静的ファイルは local/public に入るので commit）
 #   make local-up   : 手元で起動（http://localhost:$LOCAL_PORT）。アプリは作業ツリーのコードからビルドする
 #   make local-down : 止めて DB を消す（次の local-up で seed と sql/*.sql から作り直す）
+#   make patrol [TARGET=local|server] : Playwright で巡回。server はアプリの台に ssh トンネルを張って、本物を巡回する
 # 構成は local/compose.yml。部分ダンプなど取ってきたものは local/data/（git に入れない）。
 source "$(dirname "$0")/lib.sh"
 L="$ROOT/local"; D="$L/data"
@@ -37,9 +38,32 @@ up() {
   info "起動しました: http://localhost:$LOCAL_PORT/（止めるときは make local-down）"
 }
 
+patrol() {
+  local base
+  case "${TARGET:-local}" in
+    local) base="http://localhost:$LOCAL_PORT" ;;
+    server)
+      # 80 番をそのまま外から叩かず、ssh の中を通して手元の 18080 に出す
+      # 出力を閉じておかないと、残ったトンネルがパイプを握って make patrol | ... が終わらない。
+      # pid は EXIT の trap から見えるよう、local にしない
+      ssh -N -o ExitOnForwardFailure=yes -o BatchMode=yes -o ControlMaster=no -o ControlPath=none ${SSH_EXTRA_OPTS:-} \
+        -L 127.0.0.1:18080:127.0.0.1:80 "${APP_HOSTS%% *}" </dev/null >/dev/null 2>&1 &
+      TUNNEL_PID=$!
+      trap 'kill "$TUNNEL_PID" 2>/dev/null' EXIT
+      sleep 2; base="http://localhost:18080" ;;
+    *) die "TARGET は local か server" ;;
+  esac
+  cd "$L/e2e"
+  [ -d node_modules ] || npm ci --no-audit --no-fund
+  npx playwright install chromium >/dev/null
+  info "巡回: ${base}（結果とスクリーンショットは local/e2e/test-results/）"
+  BASE_URL="$base" npx playwright test
+}
+
 case "${1:-}" in
   seed) seed ;;
   up) up ;;
   down) "${COMPOSE[@]}" down -v ;;
-  *) die "使い方: local.sh seed|up|down" ;;
+  patrol) patrol ;;
+  *) die "使い方: local.sh seed|up|down|patrol" ;;
 esac

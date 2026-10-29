@@ -7,3 +7,6 @@ pprotein/
 .DS_Store
 .envrc
 local/data/
+local/e2e/node_modules/
+local/e2e/test-results/
+local/e2e/playwright-report/
