@@ -10,18 +10,31 @@ for h in $HOSTS; do
   rsh "$h" "sudo ALP_VERSION=$ALP_VERSION bash -s" <<'REMOTE'
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
+# ベンチ中に apt の自動更新や snap の更新が走ると CPU とディスクを取られ、スコアがぶれる。
+# 実行中の apt は途中で止めず（dpkg が壊れる）、タイマーとサービスだけ止めてロックが空くのを待つ
+for u in apt-daily.timer apt-daily-upgrade.timer unattended-upgrades.service snapd.service snapd.socket snapd.seeded.service; do
+  systemctl list-unit-files --no-legend "$u" | grep -q . || continue
+  systemctl disable --now -q "$u"
+  printf '  %-28s %s\n' "$u" "$(systemctl is-active "$u")"
+done
+for _ in $(seq 1 60); do
+  fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock >/dev/null 2>&1 || break
+  echo "  apt のロック待ち（自動更新が実行中）"; sleep 5
+done
+APT=(apt-get -o DPkg::Lock::Timeout=300 -qq)
 need=()
 command -v pt-query-digest >/dev/null || need+=(percona-toolkit)
 command -v htop >/dev/null || need+=(htop)
 command -v dstat >/dev/null || need+=(dstat)
+command -v pidstat >/dev/null || need+=(sysstat)
 if [ ${#need[@]} -gt 0 ]; then
-  apt-get update -qq && apt-get install -y -qq "${need[@]}" >/dev/null || echo "  [warn] apt で入らなかったもの: ${need[*]}"
+  "${APT[@]}" update && "${APT[@]}" install -y "${need[@]}" >/dev/null || echo "  [warn] apt で入らなかったもの: ${need[*]}"
 fi
 if ! command -v alp >/dev/null; then
   curl -fsSL --max-time 60 "https://github.com/tkuchiki/alp/releases/download/${ALP_VERSION}/alp_linux_$(dpkg --print-architecture).tar.gz" \
     | tar xz -C /usr/local/bin alp || echo "  [warn] alp の導入に失敗"
 fi
-for t in alp pt-query-digest htop dstat; do printf '  %-16s %s\n' "$t" "$(command -v $t || echo '-')"; done
+for t in alp pt-query-digest htop dstat pidstat; do printf '  %-16s %s\n' "$t" "$(command -v $t || echo '-')"; done
 REMOTE
   if [ -n "${PPROTEIN_AGENT_PORT:-}" ]; then
     info "[$h] pprotein-agent"
