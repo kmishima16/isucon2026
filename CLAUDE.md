@@ -12,11 +12,20 @@ Webアプリのパフォーマンスチューニング（ISUCON形式）を、�
 - 手元だけの環境変数（`AWS_PROFILE` など）は `.envrc`（direnv、git 管理外。雛形は `.envrc.example`）。Claude の Bash には direnv のフックが効かないので、`direnv exec . make ...` で実行する。
 - 計測の結果は `logs/`（make analyze）と `pprotein/data/`（make pp-up 中。画面は http://localhost:9000、API は `/api/httplog`・`/api/slowlog`・`/api/pprof`）にある。
 
+## 作業の流れ
+
+- 施策の前に `make snapshot`、deploy の後に `make compare` で、主なページの応答が変わっていないか確かめる。
+- ベンチは `make bench E="期待した動き"` で、施策の狙いを scores.tsv に一緒に残す。CPU の内訳を見るときは `PROFILE=1` を付ける。
+- `make analyze` で、alp・スローログ・pprof・fgprof・vmstat・pidstat・memcached をまとめて見る。
+- 画面の崩れや 5xx は `make patrol`（手元は `make local-up` の後、本物は `TARGET=server`）で見る。
+- 区切りで `make reboot-test` → `make bench`。最終計測の前に `make measure-off`（計測を外す）。
+- スクリプトを足したり直したりしたら `make lint`。
+
 ## 自由にやってよいこと
 
 - 施策の内容・順番・使うツールはすべて自由。ツールの追加やスクリプトの改良もしてよい。
 - ssh での調査（ログを見る、計測する、一時的に試す）。
-- `make deploy` / `make bench` / `make analyze` / `make reboot-test` の実行。
+- `make deploy` / `make bench` / `make analyze` / `make reboot-test` / `make measure-*` / `make snapshot` / `make compare` / `make patrol` / `make local-*` の実行。
 
 ## 守ること
 
