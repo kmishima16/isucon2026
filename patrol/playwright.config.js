@@ -1,4 +1,4 @@
-// make patrol（scripts/local.sh）から BASE_URL を受け取る。結果とスクリーンショットは test-results/ に出る
+// make patrol（scripts/patrol.sh）から BASE_URL を受け取る。結果とスクリーンショットは test-results/ に出る
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({

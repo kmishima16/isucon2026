@@ -46,7 +46,9 @@ async function expectImagesLoaded(page) {
 }
 
 test('/initialize が 200 を返す', async ({ request }) => {
-  const res = await request.get('/initialize', { timeout: 30_000 });
+  // ベンチの後はデータを消す量が多く、数十秒かかることがある
+  test.setTimeout(90_000);
+  const res = await request.get('/initialize', { timeout: 80_000 });
   expect(res.status()).toBe(200);
 });
 
