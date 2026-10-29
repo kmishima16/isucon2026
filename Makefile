@@ -1,6 +1,6 @@
 # すべての操作の入口。設定は isu.env。   make help
 SHELL := /bin/bash
-.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status reboot-test pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on
+.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status reboot-test measure-on measure-off measure-show pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on
 
 help: ## このヘルプ
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-12s %s\n",$$1,$$2}'
@@ -44,6 +44,12 @@ best: ## 記録したスコアの上位（良かったコミットを探す）
 	@awk -F'\t' 'NR>1' notes/scores.tsv | sort -t$$'\t' -k4,4nr | head -n $${N:-10} | awk -F'\t' '{printf "%-16s %-10s %-6s %10s  %s\n",$$1,$$2,$$3,$$4,$$5}'
 reboot-test: ## 全台を再起動して、何もせずに復帰するか確認
 	bash scripts/reboot-test.sh
+measure-show: ## 計測（アクセスログ・スローログ・pprof）が今どうなっているか
+	bash scripts/measure.sh show
+measure-off: ## 計測を外す設定に書き換えて commit → deploy（最終計測の前に）
+	bash scripts/measure.sh off
+measure-on: ## 計測を戻す設定に書き換えて commit → deploy
+	bash scripts/measure.sh on
 
 # --- pprotein（計測を画面とファイルで見る。Mac で動かす） ---
 pp-up: ## pprotein を起動し、各台への ssh トンネルと収集先を設定（画面 http://localhost:9000）
