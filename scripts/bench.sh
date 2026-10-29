@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # make prebench : 計測ログを空にする（本番でポータルからベンチを回す前にも使う）
-# make bench    : prebench → BENCH_CMD → スコアを notes/scores.tsv に記録   （PROFILE=1 で pprof も）
+# make bench    : prebench → BENCH_CMD → スコアを notes/scores.tsv に記録   （PROFILE=1 で pprof と fgprof も）
 # make score S=<点数> [M=メモ] : 手で記録（本番用）
 source "$(dirname "$0")/lib.sh"
 
@@ -10,10 +10,27 @@ record() {   # pass score memo
   printf '%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed)" 2>/dev/null || true)}" >> notes/scores.tsv
   info "記録: rev=$(deployed) pass=$1 score=$2"
 }
+# vmstat・pidstat・memcached の stats を、ベンチの間だけ各台で取る。analyze が回収して集計する
+start_sysstat() {
+  local h
+  for h in $HOSTS; do
+    rsh "$h" "sudo bash -s" <<EOF
+set -e
+d=/tmp/isu-measure; rm -rf \$d; mkdir -p \$d
+nohup timeout ${MEASURE_SECONDS:-70} vmstat -n -t 1 > \$d/vmstat.txt 2>&1 < /dev/null &
+if command -v pidstat >/dev/null; then LC_ALL=C nohup timeout ${MEASURE_SECONDS:-70} pidstat -u -h 1 > \$d/pidstat.txt 2>&1 < /dev/null & fi
+if systemctl is-active -q memcached; then
+  (exec 3<>/dev/tcp/127.0.0.1/11211; printf 'stats\r\nquit\r\n' >&3; cat <&3) > \$d/memcached-before.txt
+fi
+EOF
+  done
+}
 prebench() {
   rsh "$NGINX_HOST" "sudo truncate -s0 $NGINX_LOG 2>/dev/null || true"
   rsh "$DB_HOST" "sudo truncate -s0 $SLOW_LOG 2>/dev/null || true"
   info "計測ログを空にしました"
+  start_sysstat
+  info "vmstat・pidstat・memcached の stats を ${MEASURE_SECONDS:-70} 秒取ります"
   # pprotein はここから PPROTEIN_SECONDS 秒の分を集めるので、ベンチの直前に始める
   if [ -n "${PPROTEIN_AGENT_PORT:-}" ]; then bash "$ROOT/scripts/pprotein.sh" collect; fi
 }

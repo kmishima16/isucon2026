@@ -32,11 +32,11 @@ deploy: ## コミットをサーバーへ反映（未コミットなら拒否）
 	bash scripts/deploy.sh
 prebench: ## 計測ログを空にする（本番でポータルからベンチする前）
 	bash scripts/bench.sh prebench
-bench: ## prebench → ベンチ → スコア記録（PROFILE=1 で pprof も）
+bench: ## prebench → ベンチ → スコア記録（PROFILE=1 で pprof・fgprof も）
 	bash scripts/bench.sh bench
 prof: ## pprof の CPU プロファイルを取る（ベンチ実行中に）
 	bash scripts/prof.sh
-analyze: ## 直前のベンチの alp / pt-query-digest を集計して logs/ に保存
+analyze: ## 直前のベンチの alp / pt-query-digest / pprof / vmstat / pidstat / memcached を集計して logs/ に保存
 	bash scripts/analyze.sh
 score: ## スコアを手で記録  make score S=12345 [M=メモ]
 	bash scripts/bench.sh score
