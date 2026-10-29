@@ -16,27 +16,11 @@ record() {   # pass score memo expect
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed)" 2>/dev/null || true)}" "${4:-}" >> $f
   info "記録: rev=$(deployed) pass=$1 score=$2${4:+  期待: $4}"
 }
-# vmstat・pidstat・memcached の stats を、ベンチの間だけ各台で取る。analyze が回収して集計する
-start_sysstat() {
-  local h
-  for h in $HOSTS; do
-    rsh "$h" "sudo bash -s" <<EOF
-set -e
-d=/tmp/isu-measure; rm -rf \$d; mkdir -p \$d
-nohup timeout ${MEASURE_SECONDS:-70} vmstat -n -t 1 > \$d/vmstat.txt 2>&1 < /dev/null &
-if command -v pidstat >/dev/null; then LC_ALL=C nohup timeout ${MEASURE_SECONDS:-70} pidstat -u -h 1 > \$d/pidstat.txt 2>&1 < /dev/null & fi
-if systemctl is-active -q memcached; then
-  (exec 3<>/dev/tcp/127.0.0.1/11211; printf 'stats\r\nquit\r\n' >&3; cat <&3) > \$d/memcached-before.txt
-fi
-EOF
-  done
-}
 prebench() {
   rsh "$NGINX_HOST" "sudo truncate -s0 $NGINX_LOG 2>/dev/null || true"
   rsh "$DB_HOST" "sudo truncate -s0 $SLOW_LOG 2>/dev/null || true"
   info "計測ログを空にしました"
-  start_sysstat
-  info "vmstat・pidstat・memcached の stats を ${MEASURE_SECONDS:-70} 秒取ります"
+  bash "$ROOT/scripts/sysstat.sh" start
   # pprotein はここから PPROTEIN_SECONDS 秒の分を集めるので、ベンチの直前に始める
   if [ -n "${PPROTEIN_AGENT_PORT:-}" ]; then bash "$ROOT/scripts/pprotein.sh" collect; fi
 }
