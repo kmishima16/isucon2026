@@ -13,7 +13,7 @@ if [ "${1:-}" = app ]; then
   EXCLUDES=(); for e in $APP_EXCLUDE; do EXCLUDES+=(--exclude "$e"); done
   mkdir -p "$APP_LOCAL"
   rsync -rlptz "${EXCLUDES[@]}" -e "$RSYNC_E" --rsync-path="sudo rsync" "$h:$APP_REMOTE/" "$APP_LOCAL/"
-  info "取り込みました: $APP_LOCAL（commit してください）"
+  info "取り込みました: ${APP_LOCAL}（commit してください）"
   exit 0
 fi
 
@@ -26,4 +26,4 @@ if rsh "$h" "sudo test -d '$F'"; then
 else
   rsync -lpt -e "$RSYNC_E" --rsync-path="sudo rsync" "$h:$F" "$dest"
 fi
-info "取り込みました: $dest（編集して commit → make deploy）"
+info "取り込みました: ${dest}（編集して commit → make deploy）"

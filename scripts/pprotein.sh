@@ -81,7 +81,7 @@ alp_yaml() {
 up() {
   ensure_tools
   if ! server_up; then
-    info "pprotein を起動（$URL、データは pprotein/data/）"
+    info "pprotein を起動（${URL}、データは pprotein/data/）"
     # exec で置き換え、保存する PID を pprotein そのものにする（pp-down で確実に止めるため）
     (cd "$PP_DIR" && PORT="$PPROTEIN_PORT" PATH="$TOOLS:$PATH" exec nohup "$TOOLS/pprotein" >"$RUN/server.log" 2>&1) &
     echo $! >"$RUN/server.pid"
