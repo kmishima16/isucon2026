@@ -1,0 +1,43 @@
+# make local-up で起動する手元の環境（scripts/local.sh）。data/ は local.sh が用意する
+name: isu-local
+services:
+  mysql:
+    image: mysql:8.0.40
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: isuconp
+      MYSQL_USER: isuconp
+      MYSQL_PASSWORD: isuconp
+    volumes:
+      - ./data/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 2s
+      retries: 90
+  memcached:
+    image: memcached:1.6.32
+  app:
+    build: ../webapp/golang
+    environment:
+      ISUCONP_DB_HOST: mysql
+      ISUCONP_DB_USER: isuconp
+      ISUCONP_DB_PASSWORD: isuconp
+      ISUCONP_DB_NAME: isuconp
+      ISUCONP_MEMCACHED_ADDRESS: memcached:11211
+    volumes:
+      # アプリは ../public（WORKDIR が /home/webapp）に静的ファイルと画像を置く
+      - ./data/public:/home/public
+    depends_on:
+      mysql:
+        condition: service_healthy
+      memcached:
+        condition: service_started
+  nginx:
+    image: nginx:1.27.3
+    ports:
+      - "${LOCAL_PORT:-8080}:80"
+    volumes:
+      - ./data/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./data/public:/public:ro
+    depends_on:
+      - app
