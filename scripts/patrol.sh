@@ -7,7 +7,7 @@ source "$(dirname "$0")/lib.sh"
 TUNNEL_PORT=18080   # TARGET=server のとき、アプリの台の 80 番を手元のこのポートに出す
 
 case "${TARGET:-local}" in
-  local) base="http://localhost:${LOCAL_PORT:-8080}" ;;
+  local) base="http://localhost:$LOCAL_PORT" ;;
   server)
     # 80 番をそのまま外から叩かず、ssh の中を通す。
     # 出力を閉じておかないと、残ったトンネルがパイプを握って make patrol | ... が終わらない

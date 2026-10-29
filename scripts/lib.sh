@@ -6,6 +6,23 @@ cd "$ROOT"
 # shellcheck source=../isu.env
 source "$ROOT/isu.env"
 
+# --- 道具の既定値。問題で変わらないものはここに置き、変えたいときだけ isu.env に書く（isu.env が優先） ---
+# := は空でも既定値にする。= は isu.env で空にすると「使わない」になるもの
+: "${MEASURE_SECONDS:=70}"          # prebench から vmstat・pidstat を取る秒数。ベンチより少し長く
+: "${MEMCACHED_PORT:=11211}"        # memcached の stats を取るポート
+: "${SNAPSHOT_INIT=/initialize}"    # make snapshot / compare の前に叩いてデータをそろえる（空なら叩かない）
+: "${LOCAL_PORT:=8080}"             # make local-up で手元に開くポート
+: "${LOCAL_UPSTREAM:=localhost:8080}"  # サイト設定の中のアプリの宛先（手元の nginx では app:8080 に差し替える）
+: "${PPROTEIN_VERSION:=v1.2.4}"
+: "${PPROTEIN_PORT:=9000}"          # Mac で開く pprotein の画面
+: "${PPROTEIN_AGENT_PORT=19000}"    # 各台の pprotein-agent（ssh トンネル経由でだけ届く）。空なら pprotein を使わない
+: "${PPROTEIN_SECONDS:=70}"         # pprotein の 1 回の収集の長さ。ベンチより少し長く
+: "${PORTAL_JQ_PICK:=.}"            # make portal：結果が配列なら isu.env で '.[0]' などにする
+: "${PORTAL_JQ_ID=}"                # 結果を見分ける ID（例: '.id'）。空なら中身で見分ける
+: "${PORTAL_JQ_PASS:=.pass}"
+: "${PORTAL_JQ_SCORE:=.score}"
+: "${PORTAL_JQ_MESSAGES:=.messages}"
+
 LOG_DIR="$ROOT/logs"; mkdir -p "$LOG_DIR" "$ROOT/notes"
 
 info() { printf '\033[36m==> %s\033[0m\n' "$*" >&2; }

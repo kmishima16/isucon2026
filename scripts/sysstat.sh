@@ -6,7 +6,6 @@
 source "$(dirname "$0")/lib.sh"
 
 REMOTE_DIR=/tmp/isu-measure
-MEMCACHED_PORT="${MEMCACHED_PORT:-11211}"
 # memcached が動いている台なら stats を出す（動いていなければ何も出さない）
 MEMCACHED_STATS="if systemctl is-active -q memcached; then (exec 3<>/dev/tcp/127.0.0.1/$MEMCACHED_PORT; printf 'stats\r\nquit\r\n' >&3; cat <&3); fi"
 
@@ -16,12 +15,12 @@ start() {
     rsh "$h" "sudo bash -s" <<EOF
 set -e
 rm -rf $REMOTE_DIR; mkdir -p $REMOTE_DIR
-nohup timeout ${MEASURE_SECONDS:-70} vmstat -n -t 1 > $REMOTE_DIR/vmstat.txt 2>&1 < /dev/null &
-if command -v pidstat >/dev/null; then LC_ALL=C nohup timeout ${MEASURE_SECONDS:-70} pidstat -u -h 1 > $REMOTE_DIR/pidstat.txt 2>&1 < /dev/null & fi
+nohup timeout $MEASURE_SECONDS vmstat -n -t 1 > $REMOTE_DIR/vmstat.txt 2>&1 < /dev/null &
+if command -v pidstat >/dev/null; then LC_ALL=C nohup timeout $MEASURE_SECONDS pidstat -u -h 1 > $REMOTE_DIR/pidstat.txt 2>&1 < /dev/null & fi
 $MEMCACHED_STATS > $REMOTE_DIR/memcached-before.txt
 EOF
   done
-  info "vmstat・pidstat・memcached の stats を ${MEASURE_SECONDS:-70} 秒取ります"
+  info "vmstat・pidstat・memcached の stats を $MEASURE_SECONDS 秒取ります"
 }
 
 summarize() {   # 回収したディレクトリ

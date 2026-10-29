@@ -5,6 +5,7 @@
 
 ```
 isu.env        問題ごとに変えるのはここだけ（サーバー、アプリの場所、ビルド、ベンチ）
+scripts/       操作の中身（make X → scripts/X.sh）。道具の既定値は scripts/lib.sh（isu.env に書けば上書き）
 CLAUDE.md      Claude へのルール（最小限）
 Makefile       操作の入口（make help）
 server/all/    全台に置く設定ファイル（絶対パスのミラー：server/all/etc/nginx/... → /etc/nginx/...）
