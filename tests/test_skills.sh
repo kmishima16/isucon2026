@@ -119,6 +119,11 @@ has "docs/README が overview の画像の置き場を決める" docs/README.md 
 lacks "first-time が古い zip からキットを取り出さない" docs/flow/first-time.md 'unzip isucon-kit.zip'
 has "first-time がキットを履歴ごと取り込み、更新を取り込めるようにする" docs/flow/first-time.md 'git remote rename origin kit'
 
+echo "道具は isucon-kit で直す"
+has "CLAUDE.md が道具を isucon-kit で直させる" CLAUDE.md '道具は isucon-kit で直す'
+has "CLAUDE.md がキットの更新の取り込み方を書く" CLAUDE.md 'git fetch kit && git merge kit/main'
+lacks "CLAUDE.md に、練習で直してから移すという古い流れが無い" CLAUDE.md '練習用のリポジトリで確かめたら、isucon-kit に移す'
+
 echo "造語を使わない（ふつうの言葉で書く）"
 check "スキル・CLAUDE.md・手引きに造語が無い" "" "$(grep -rlE 'クリティカルパス|砂場|合図|しるし|待つもの|知らせ' CLAUDE.md README.md .claude/skills .claude/agents docs/flow docs/kit scripts/hooks 2>/dev/null || true)"
 

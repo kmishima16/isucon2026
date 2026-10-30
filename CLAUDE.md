@@ -63,7 +63,9 @@ issue では（GitHub から読むので、手元のパスや行番号は見え�
   - 例：`perf: 画像を nginx から静的配信する`、`fix: analyze の alp 出力項目を 1.0 系に合わせる`
 - prefix：`perf`（性能改善）・`fix`（不具合の修正）・`feat`（機能や道具の追加）・`refactor`（動きを変えない整理）・`chore`（記録・雑務）・`docs`（文書）。
 - 記録は道具がその場でコミットする（`chore: ベンチ結果を記録する`、`chore: 計測を外す`／`chore: 計測を戻す`）。手でコミットし直さない。
-- 道具（`scripts/`・`Makefile`・`isu.env`・`docs/kit`・`docs/flow`・`.claude/`）を変えたら、その手引きと 1 コミットにし、`make lint` と `make test` を通す。練習用のリポジトリで確かめたら、isucon-kit に移す。
+- 道具は isucon-kit で直す。道具（`scripts/`・`Makefile`・isu.env の雛形・`docs/kit`・`docs/flow`・`.claude/`）を変えたら、その手引きと 1 コミットにし、`make lint` と `make test` を通す（サーバーは要らない）。
+- 練習と本番のリポジトリは、isucon-kit を clone して作る（docs/flow/first-time.md）。キットの更新は、そのリポジトリで `git fetch kit && git merge kit/main` で取り込み、実機で確かめる。問題ごとの値（isu.env の中身・server/・sql/・アプリ）は、そのリポジトリだけで変える。
+- 本番中などに、練習や本番のリポジトリで道具を直したときは、終わってから isucon-kit で同じ直しをする（`logs/kit-notes.md` の控えから）。
 
 ## 困ったら
 
