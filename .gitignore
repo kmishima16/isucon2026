@@ -10,3 +10,4 @@ local/data/
 patrol/node_modules/
 patrol/test-results/
 patrol/playwright-report/
+.claude/worktrees/
