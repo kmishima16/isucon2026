@@ -8,7 +8,8 @@
       "Bash(isuenv list)",
       "Bash(isuenv bench *)",
       "Bash(isuenv problems)",
-      "Bash(direnv exec . make *)"
+      "Bash(direnv exec . make *)",
+      "Bash(gh issue *)"
     ],
     "deny": [
       "Bash(make up)",

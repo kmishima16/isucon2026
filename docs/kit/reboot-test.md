@@ -11,7 +11,8 @@
 
 ## いつ使うか
 
-- 依頼された作業を終えて報告する前で、最後の reboot-test より後に deploy しているとき（CLAUDE.md の出来事ごとの手順 7）。続けて `make bench`。
+- 永続化や台の構成に関わる施策の直後（.claude/skills/isu-ops/SKILL.md の 7）。続けて `make bench`。
+- 練習を締めるとき（同じスキルの「締め」）。
 - 本番の最終盤（docs/flow/contest.md）。
 
 ## 動かし方

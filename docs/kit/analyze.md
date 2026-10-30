@@ -7,12 +7,12 @@
 - `make analyze` は、alp（アクセスログ）・pt-query-digest（スローログ）・pprof・fgprof と、各台の vmstat・pidstat・memcached の stats をまとめて出し、logs/<時刻>-* に保存する。
 - vmstat・pidstat・memcached は、prebench が各台で始め（scripts/sysstat.sh start）、analyze が回収する（scripts/sysstat.sh collect）。台の上で取るので、ポータルのベンチでも同じ手順で使える。
 - `make prof` は、ベンチ中に pprof と fgprof を取る。`make bench PROFILE=1` でも自動で取る。手元に go が無ければ、サーバーの go で集計する。
-- どの施策をするかは決めない。それは最新の results と合わせて決める（CLAUDE.md の出来事ごとの手順 2）。
+- どの施策をするかは決めない。操作役がここから候補を出し、人間が選ぶ（.claude/skills/isu-ops/SKILL.md の 3〜4）。
 
 ## いつ使うか
 
-- 毎回の bench の後（手順 5）。results の「計測の変化」の元になる。
-- 次の施策を決める前（手順 2）。
+- 毎回の bench の後（.claude/skills/isu-ops/SKILL.md の 6）。施策の結果を確かめる元になる。
+- 次の候補を出す前（同じスキルの 3）。
 
 ## 動かし方
 

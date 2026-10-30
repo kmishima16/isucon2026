@@ -11,8 +11,8 @@
 
 ## いつ使うか
 
-- 施策のコードを書く前：`make snapshot`（CLAUDE.md の出来事ごとの手順 3）。
-- deploy の直後：`make compare`（手順 4）。違いが意図どおりなら、`make snapshot` で取り直す。
+- 基準を取るとき：最初の一周の後に `make snapshot`。
+- 応答を作る処理（クエリ・テンプレート・キャッシュ）を変えた施策の deploy の直後：`make compare`（.claude/skills/isu-ops/SKILL.md の 6）。nginx や MySQL の設定だけの施策では行わない。違いが意図どおりなら、`make snapshot` で取り直す。
 
 ## 動かし方
 

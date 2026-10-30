@@ -16,7 +16,7 @@
 
 ## いつ使うか
 
-- 施策や道具の変更をコミットした直後（CLAUDE.md の出来事ごとの手順 4）。続けて `make compare`（docs/kit/snapshot.md）。
+- 施策や道具の変更をコミットした直後（.claude/skills/isu-ops/SKILL.md の 6）。応答を作る処理を変えた施策なら、続けて `make compare`（docs/kit/snapshot.md）。
 - 戻したいとき：`make best` で良かったコミットを探し、`make deploy REV=<rev>`。
 
 ## 動かし方

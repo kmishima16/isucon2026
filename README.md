@@ -6,8 +6,16 @@
 
 ## 規則
 
-- [CLAUDE.md](CLAUDE.md)：Claude への規則。守ること・コミットの規約・出来事ごとの手順（いつ何を書き、いつ何を起動し、いつコミットし、いつ何を読むか）。
+- [CLAUDE.md](CLAUDE.md)：Claude への規則。前提・役割・守ること・伝え方・issue の決まり・コミットの規約。
 - [docs/README.md](docs/README.md)：docs の規則。文書の種類・ファイル名・書くこと。
+
+## 役割（Claude Code のスキルとサブエージェント）
+
+- [操作役 /isu-ops](.claude/skills/isu-ops/SKILL.md)：候補を出し、人間が選んだ施策を実装・deploy・bench して伝える。サーバーに触れるのはこの役だけ。
+- [調査役 /isu-research](.claude/skills/isu-research/SKILL.md)：採点の仕組み・仕様・コードから構造的な案を出し、大きな案を worktree で下ごしらえする。
+- [reviewer](.claude/agents/reviewer.md)：施策の diff を敵対的にレビューする。
+- [doc-writer](.claude/agents/doc-writer.md)：overview と retro を書く。
+- [issue のテンプレート](.github/ISSUE_TEMPLATE/kaizen.md)：持ち越す改善項目（経緯・わかったこと・原因・完了の条件）。
 
 ## 場面ごとの手順
 
@@ -31,12 +39,12 @@
 - [portal](docs/kit/portal.md)：本番のポータルの結果を取り出して記録する。
 - [doctor](docs/kit/doctor.md)：診断・ログ・書き間違いの確認・自動テスト。
 - [docs](docs/kit/docs.md)：積み上げる文書の状態と、docs ブランチの取り込み。
-- [hooks](docs/kit/hooks.md)：Claude Code への自動の読み込みと、取りこぼしの確認。
+- [hooks](docs/kit/hooks.md)：Claude Code への自動の読み込み（役割の確認・ベストスコア）と、docs の取り込み漏れの確認。
 
 ## 記録と積み上げる文書
 
 - [docs/scores.tsv](docs/scores.tsv)：ベンチ結果の記録（`make best` で上位を見る）。
-- docs/overview・docs/design・docs/results・docs/retro：全体像・施策の設計・結果・振り返り（規則は docs/README.md）。
+- docs/overview・docs/retro：全体像（仕様メモ）・振り返り（規則は docs/README.md）。docs/design・docs/results は以前の施策の記録で、今は新しく書かない。
 
 ## ディレクトリ
 

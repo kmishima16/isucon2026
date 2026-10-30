@@ -7,12 +7,12 @@
 - `make doctor` は、手元のツール・ロック・作業ツリー・デプロイ済みの版 → isuenv の環境 → ssh → 各台のサービスとディスク・メモリ・負荷、の順に確かめ、NG には次の一手を出す。
 - `make status` は、アプリのログ（直近 50 行）を出す。
 - `make lint` は、スクリプトの構文・変数の直後の全角文字・shellcheck（入っていれば）・README の目次と、生きた文書のリンクを、実行する前に確かめる。
-- `make test` は、道具の自動テスト（tests/test_*.sh）を流す。docs.sh・記録・hooks・lint の確認を、使い捨てのリポジトリで試す。
+- `make test` は、道具の自動テスト（tests/test_*.sh）を流す。docs.sh・記録・hooks・lint・ロックの確認を、使い捨てのリポジトリで試す。役割のスキル・reviewer・issue のテンプレートが hooks の案内と揃っていることも確かめる（tests/test_skills.sh）。
 
 ## いつ使うか
 
 - 何かおかしいとき：まず `make doctor`。
-- 道具（scripts/・Makefile・docs/kit・docs/flow・.claude/）を変えたとき：`make lint` と `make test`（CLAUDE.md の「道具を変えるとき」）。
+- 道具（scripts/・Makefile・docs/kit・docs/flow・.claude/）を変えたとき：`make lint` と `make test`（CLAUDE.md のコミットの節）。
 
 ## 動かし方
 

@@ -30,9 +30,14 @@ git add -A && git commit -m "chore: nginx の設定を取り込む"
 
 # 6. 何も変えていない状態で一周させる（ここで初期スコアが docs/scores.tsv に記録される）
 make deploy && make bench && make analyze
+
+# 7. 持ち越しの issue の置き場として、GitHub に private リポジトリを作る（人間）
+gh repo create <名前> --private --source . --remote origin
 ```
 
 ここまで通ったら、Claude Code でこのフォルダを開きます。最初に開いたときは、フォルダの信頼の確認に同意します。同意するまで hooks（docs/kit/hooks.md）が動きません。
+
+続けて、Claude Code で 2 つのセッションを開きます。操作役のセッションで `/isu-ops`、調査役のセッションで `/isu-research` を打ちます（CLAUDE.md の役割）。手順 3〜6 は、`/isu-ops` に任せても構いません。
 
 ## 取り込むときの注意
 
