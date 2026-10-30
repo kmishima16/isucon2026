@@ -11,6 +11,7 @@
 - 止めてある nginx や MySQL（複数台で役割を分けた台）は、設定を配っても reload・restart しない（nginx -t だけは行う）。起こしたいときは、その台の unit を enable にする設定を配るか、人間が起こす。
 - ネットワーク・ssh・権限まわりのファイル（etc/ssh・netplan・hosts・ufw・sudoers など）は配らない。外から入れなくなるのを防ぐため。
 - ビルドや疎通確認に失敗したら止まる。古いバイナリのままベンチするのを防ぐため。
+- アプリは rsync --delete で転送するので、手元に無いファイルはサーバーの `APP_REMOTE` から消える。実行中にアプリがその中へ書くファイル（ファイルに出した画像・アイコンなど）は、isu.env の `APP_EXCLUDE` に足す。外したものは、転送も削除もされない。
 - deploy とベンチは、ロック（.lock/）で直列にする。
 - worktree（調査役の下ごしらえの場所）では、サーバーや記録を変える操作（deploy・bench・prebench・score・portal・reboot-test・snapshot・compare・measure-on / off・setup・pp-agent-on / off）を断る。ロックとデプロイ済みの記録がチェックアウトごとにあり、すり抜けるため。判定は、.git がファイルかどうかで行う（scripts/lib.sh の refuse_in_worktree）。
 - ssh には、タイムアウト・keepalive・接続の使い回しを設定してある（scripts/lib.sh）。回線が切れても固まらない。

@@ -47,6 +47,11 @@ has "CLAUDE.md が close の証拠をコメントに残させる" CLAUDE.md '証
 has "settings.json が gh issue delete を断る" .claude/settings.json 'Bash(gh issue delete *)'
 has "settings.json が gh issue transfer を断る" .claude/settings.json 'Bash(gh issue transfer *)'
 
+echo "実行中に書くファイルを deploy で消さない"
+has "isu-ops がファイルに書く施策で APP_EXCLUDE を足させる" .claude/skills/isu-ops/SKILL.md 'APP_EXCLUDE'
+has "reviewer が deploy で消えないかを見る" .claude/agents/reviewer.md 'APP_EXCLUDE'
+has "deploy の手引きが rsync --delete と APP_EXCLUDE を書く" docs/kit/deploy.md '`APP_EXCLUDE` に足す'
+
 echo "本番の時間割"
 has "contest.md に初期データの退避がある" docs/flow/contest.md 'mysqldump'
 has "contest.md に最終のデータの確認がある" docs/flow/contest.md 'データが残っていることを確かめる'
