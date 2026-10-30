@@ -23,6 +23,7 @@ prebench() {
   if [ -n "${PPROTEIN_AGENT_PORT:-}" ]; then bash "$ROOT/scripts/pprotein.sh" collect; fi
 }
 
+refuse_in_worktree "${1:-bench}"
 case "${1:-bench}" in
   prebench) prebench ;;
   score) record "${PASS:-true}" "${S:?S=<点数> を指定}" "${M:-}" "${E:-}" ;;

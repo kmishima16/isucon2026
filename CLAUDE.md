@@ -15,7 +15,7 @@ Webアプリのパフォーマンスチューニング（ISUCON形式）を、�
 
 次の施策を決めるのは人間。LLM の仕事は、全体像を素早くまとめて伝えること・実装・道具での調査・deploy の 4 つ。すべてを書き残して管理することはしない。
 
-- 操作役：人間が `/isu-ops` と打ったセッション（`.claude/skills/isu-ops/SKILL.md`）。deploy・bench・analyze・reboot-test・measure-* を実行するのは、この役だけ。main のチェックアウトで動く（worktree では道具が断る）。
+- 操作役：人間が `/isu-ops` と打ったセッション（`.claude/skills/isu-ops/SKILL.md`）。deploy・bench・analyze・reboot-test・measure-* を実行するのは、この役だけ。main のチェックアウトで動く（worktree では、サーバーや記録を変える道具が断る）。
 - 調査役：人間が `/isu-research` と打ったセッション（`.claude/skills/isu-research/SKILL.md`）。ssh は読み取りだけ。コードを変えるのは自分の worktree の中だけ。
 - レビュー役：サブエージェント reviewer（`.claude/agents/reviewer.md`）。操作役が施策ごとに diff を渡す。
 - 文書：サブエージェント doc-writer（`.claude/agents/doc-writer.md`）。overview と retro だけを書く。返ったら操作役が `make docs-merge`。

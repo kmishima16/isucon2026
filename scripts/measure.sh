@@ -66,8 +66,8 @@ EOF
 }
 
 case "${1:-show}" in
-  on) switch 1 ;;
-  off) switch 0 ;;
+  on) refuse_in_worktree measure-on; switch 1 ;;
+  off) refuse_in_worktree measure-off; switch 0 ;;
   show) show ;;
   *) die "使い方: measure.sh on|off|show" ;;
 esac

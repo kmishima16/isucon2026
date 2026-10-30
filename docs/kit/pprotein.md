@@ -9,6 +9,7 @@
 - `make pp-up` は、Mac で pprotein を起動し、各台への ssh トンネルを張る（初回は pprotein・alp・slp を .tools/ にダウンロード）。`make pp-status`・`make pp-down` で状態を見る・止める。
 - 各台の pprotein-agent は setup が入れる。認証が無いので、systemd の `IPAddressAllow=localhost` で、その台の localhost（ssh トンネルの出口）からしか受けない。
 - Mac の pprotein も認証が無く、Mac の全インターフェースで待ち受ける。外の Wi-Fi では `make pp-down` しておく。
+- worktree（調査役の下ごしらえの場所）では断る（docs/kit/deploy.md）。
 
 ## いつ使うか
 

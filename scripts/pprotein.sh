@@ -151,7 +151,7 @@ case "${1:-status}" in
   collect) collect ;;
   status) status ;;
   down) down ;;
-  agent-off) agent off ;;
-  agent-on) agent on ;;
+  agent-off) refuse_in_worktree pp-agent-off; agent off ;;
+  agent-on) refuse_in_worktree pp-agent-on; agent on ;;
   *) die "使い方: pprotein.sh up|collect|status|down|agent-off|agent-on" ;;
 esac

@@ -2,6 +2,7 @@
 # 新しいサーバーに1回だけ実行する（何度実行しても同じ結果になる）。
 # 計測ツールを入れて、isu.env の SETUP_CMD を実行する。設定ファイルの反映は deploy の役目。
 source "$(dirname "$0")/lib.sh"
+refuse_in_worktree setup
 ALP_VERSION="${ALP_VERSION:-v1.0.21}"
 
 for h in $HOSTS; do

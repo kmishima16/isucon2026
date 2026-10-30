@@ -6,6 +6,7 @@
 # 結果の JSON のどこに何があるかは PORTAL_JQ_* で指定する。本番当日にポータルを開発者ツールで見て埋める。
 # 認証の Cookie は .envrc の PORTAL_COOKIE に書く（git に入れない。Claude はこの値を読まない・書かない）。
 source "$(dirname "$0")/lib.sh"
+refuse_in_worktree portal
 command -v jq >/dev/null || die "jq がありません"
 SEEN="$LOG_DIR/portal-seen"; touch "$SEEN"
 

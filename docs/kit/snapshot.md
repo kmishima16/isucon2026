@@ -8,6 +8,7 @@
 - `make compare [BASE=base] [NAME=current]` は、同じ状態で取り直して比べ、違えば差分を出して失敗する。毎回変わる部分（CSRF トークンなど）は `SNAPSHOT_IGNORE` で消してから比べる。
 - 比べるのは、未ログインの GET だけ。ログイン後の画面と操作は docs/kit/patrol.md。
 - ベンチでは表示や応答の変化に気づきにくいので、それを補う。
+- worktree（調査役の下ごしらえの場所）では断る（docs/kit/deploy.md）。
 
 ## いつ使うか
 

@@ -10,10 +10,11 @@
 - `make best` は、記録の上位を出す（良かったコミットを探す）。
 - 記録したら、docs/scores.tsv だけをその場でコミットする（`chore: ベンチ結果を記録する`）。未コミットのまま次の deploy が止まるのを防ぐため。ほかの変更は巻き込まない。
 - HEAD とデプロイ済みで docs/ 以外が違えば、警告する。
+- worktree（調査役の下ごしらえの場所）では断る（docs/kit/deploy.md）。
 
 ## いつ使うか
 
-- deploy した後（施策の回し方の 4。.claude/skills/isu-ops/SKILL.md）。裏で回してよい。deploy はロックで止まるので重ならない。
+- deploy した後（.claude/skills/isu-ops/SKILL.md の 6）。裏で回してよい。deploy はロックで止まるので重ならない。
 - 本番：`make prebench` → ポータルでベンチ → `make portal`（docs/kit/portal.md）か `make score`。
 
 ## 動かし方

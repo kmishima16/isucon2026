@@ -9,6 +9,7 @@
 - `make pull-app` は、サーバーのアプリ（`APP_REMOTE`）を `APP_LOCAL` に取り込む。最初の 1 回だけ使う。
 - `make pull F=<絶対パス> [H=<ホスト>]` は、サーバーの設定ファイルを server/all/（全台）か server/<ホスト>/ に取り込む。
 - 設定ファイルの反映は受け持たない（docs/kit/deploy.md）。
+- worktree（調査役の下ごしらえの場所）では断る（docs/kit/deploy.md）。
 
 ## いつ使うか
 

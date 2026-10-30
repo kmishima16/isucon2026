@@ -8,6 +8,7 @@
 - pprof は、アプリが環境変数 `ISU_MEASURE=0` のときに待ち受けないように作っておく。値は systemd の drop-in で渡す。
 - `make measure-show` は、リポジトリの設定と、各台の実際の状態を並べて出す。
 - 受け持つのは nginx・MySQL・systemd の構成だけ。
+- worktree（調査役の下ごしらえの場所）では断る（docs/kit/deploy.md）。
 
 ## いつ使うか
 

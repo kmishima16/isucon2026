@@ -8,6 +8,7 @@
 - 記録は make score と同じく、その場でコミットする（docs/kit/bench.md）。
 - 同じ結果は二重に記録しない。ID か中身で見分け、logs/portal-seen に残す。
 - 本番のポータルの形式では、まだ確かめていない。
+- worktree（調査役の下ごしらえの場所）では断る（docs/kit/deploy.md）。
 
 ## いつ使うか
 

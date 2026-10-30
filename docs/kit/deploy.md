@@ -11,7 +11,7 @@
 - ネットワーク・ssh・権限まわりのファイル（etc/ssh・netplan・hosts・ufw・sudoers など）は配らない。外から入れなくなるのを防ぐため。
 - ビルドや疎通確認に失敗したら止まる。古いバイナリのままベンチするのを防ぐため。
 - deploy とベンチは、ロック（.lock/）で直列にする。
-- worktree（調査役の下ごしらえの場所）では、deploy・bench・reboot-test・snapshot を断る。ロックがチェックアウトごとにあり、すり抜けるため。
+- worktree（調査役の下ごしらえの場所）では、サーバーや記録を変える操作（deploy・bench・prebench・score・portal・reboot-test・snapshot・compare・measure-on / off・setup・pp-agent-on / off）を断る。ロックとデプロイ済みの記録がチェックアウトごとにあり、すり抜けるため。判定は、.git がファイルかどうかで行う（scripts/lib.sh の refuse_in_worktree）。
 - ssh には、タイムアウト・keepalive・接続の使い回しを設定してある（scripts/lib.sh）。回線が切れても固まらない。
 
 ## いつ使うか
