@@ -69,6 +69,11 @@ lacks "first-time に origin を二重に足す手順が無い" docs/flow/first-
 echo "doc-writer の同時書き込み"
 has "doc-writer が書く前に書きかけを確かめる" .claude/agents/doc-writer.md 'status --porcelain'
 
+echo "snapshot の初期化とポータルのベンチ"
+has "isu-ops がポータルのベンチ中に snapshot を取らせない" .claude/skills/isu-ops/SKILL.md 'ポータルのベンチが終わってから'
+has "snapshot の手引きがベンチとぶつかることを書く" docs/kit/snapshot.md 'ポータルのベンチが終わってから'
+has "first-time が snapshot の時期を書く" docs/flow/first-time.md 'ポータルのベンチが終わってから'
+
 echo "本番の時間割"
 has "contest.md に初期データの退避がある" docs/flow/contest.md 'mysqldump'
 has "contest.md に最終のデータの確認がある" docs/flow/contest.md 'データが残っていることを確かめる'

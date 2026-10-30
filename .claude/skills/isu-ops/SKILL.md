@@ -23,7 +23,7 @@ description: ISUCON 形式のチューニングで、操作役として施策の
 
 ### 最初の一周（新しい問題）
 
-docs/flow/first-time.md の手順 3〜6 を回す：`make setup` → `make pull-app` → コミット → `make deploy` → `make bench` → `make analyze` → `make snapshot`（回帰チェックの基準。isu.env の `SNAPSHOT_*` を問題に合わせてから）。`make up` は人間だけが実行する。
+docs/flow/first-time.md の手順 3〜6 を回す：`make setup` → `make pull-app` → コミット → `make deploy` → `make bench` → `make analyze` → `make snapshot`（回帰チェックの基準。isu.env の `SNAPSHOT_*` を問題に合わせてから。snapshot は初期化を叩くので、本番ではポータルのベンチが終わってから取る）。`make up` は人間だけが実行する。
 
 ## 施策の回し方
 

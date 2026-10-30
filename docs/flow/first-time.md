@@ -30,7 +30,7 @@ git add -A && git commit -m "chore: nginx の設定を取り込む"
 
 # 6. 何も変えていない状態で一周させる（ここで初期スコアが docs/scores.tsv に記録される）
 make deploy && make bench && make analyze
-make snapshot                 # 回帰チェックの基準（isu.env の SNAPSHOT_* を問題に合わせてから。docs/kit/snapshot.md）
+make snapshot                 # 回帰チェックの基準（isu.env の SNAPSHOT_* を問題に合わせてから。初期化を叩くので、本番ではポータルのベンチが終わってから取る。docs/kit/snapshot.md）
 
 # 7. 持ち越しの issue の置き場として、GitHub に private リポジトリを作る（人間）
 gh repo create <名前> --private --source . --remote origin
