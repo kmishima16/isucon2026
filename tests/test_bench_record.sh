@@ -41,6 +41,18 @@ check "fail の無い行が先頭に来る" "bbb" "$(head -1 <<<"$out" | awk '{p
 contains "fail が分からない古い行は ? と出して残す" "fail=?" "$(grep ddd <<<"$out")"
 finish_fixture
 
+echo "ほかの git の操作（index.lock）と重なったとき"
+make_fixture
+touch .git/index.lock
+(if S=77 bash scripts/bench.sh score >/dev/null 2>&1; then echo 0; else echo 1; fi > rc) &
+sleep 2
+rm -f .git/index.lock
+wait
+check "ロックが外れるのを待って記録を終える" "0" "$(cat rc)"
+check "記録がコミットされている" "chore: ベンチ結果を記録する" "$(git log -1 --format=%s)"
+check "記録が未コミットで残らない" "" "$(git status --porcelain docs/scores.tsv)"
+finish_fixture
+
 echo "記録のコミットに失敗したとき"
 make_fixture
 printf '#!/bin/sh\nexit 1\n' > .git/hooks/pre-commit

@@ -66,6 +66,9 @@ has "isu-ops の最初の一周で回帰チェックの基準を取る" .claude/
 has "first-time の一周で回帰チェックの基準を取る" docs/flow/first-time.md 'make snapshot'
 lacks "first-time に origin を二重に足す手順が無い" docs/flow/first-time.md 'git remote add origin'
 
+echo "doc-writer の同時書き込み"
+has "doc-writer が書く前に書きかけを確かめる" .claude/agents/doc-writer.md 'status --porcelain'
+
 echo "本番の時間割"
 has "contest.md に初期データの退避がある" docs/flow/contest.md 'mysqldump'
 has "contest.md に最終のデータの確認がある" docs/flow/contest.md 'データが残っていることを確かめる'

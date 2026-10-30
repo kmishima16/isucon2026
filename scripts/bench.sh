@@ -12,8 +12,16 @@ record() {   # pass score memo expect fail
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed_rev)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed_rev)" 2>/dev/null || true)}" "${4:-}" "${5:-}" >> $f
   info "記録: rev=$(deployed_rev) pass=$1 score=$2 fail=${5:-?}${4:+  期待: $4}"
   # 未コミットのまま残ると次の deploy が止まるので、記録だけをその場でコミットする（ほかの変更は巻き込まない）
-  git add $f
-  git commit -q -m "chore: ベンチ結果を記録する" -- $f || die "$f をコミットできません"
+  # bench を裏で回すと、操作役の git の操作と重なることがある。index.lock が外れるまで（最長 30 秒）待ってやり直す
+  local lock i
+  lock="$(git rev-parse --git-dir)/index.lock"
+  for i in $(seq 1 30); do
+    if git add $f 2>/dev/null && git commit -q -m "chore: ベンチ結果を記録する" -- $f 2>/dev/null; then return 0; fi
+    [ -e "$lock" ] || break
+    [ "$i" = 1 ] && info "ほかの git の操作が終わるのを待っています（${lock}）"
+    sleep 1
+  done
+  git add $f && git commit -q -m "chore: ベンチ結果を記録する" -- $f || die "$f をコミットできません"
 }
 prebench() {
   # ポータルのベンチは、いつ始まるか分からない（待ち行列）。窓を長く取り、集計はベンチ中の秒だけを使う（scripts/sysstat.sh）

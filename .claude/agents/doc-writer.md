@@ -12,7 +12,8 @@ main のチェックアウトは、チューニング（commit → make deploy �
 
 1. リポジトリのルートで `git worktree list` を見る。`.claude/worktrees/docs` があれば、そこを使う。
 2. 無ければ `git worktree add .claude/worktrees/docs docs` で作る。docs ブランチも無ければ `git worktree add -b docs .claude/worktrees/docs main` で作る。
-3. 書く前に、その worktree で `git merge --no-edit main` を実行し、main の最新のコードと記録を取り込む。衝突したら止めて報告する。
+3. 書く前に、`git -C .claude/worktrees/docs status --porcelain` が空かを見る。空でなければ、ほかの doc-writer（調査役の overview と操作役の retro など）が書いている途中なので、何も変えずに止めて報告する。
+4. その worktree で `git merge --no-edit main` を実行し、main の最新のコードと記録を取り込む。衝突したら止めて報告する。
 
 ## 書き方
 
