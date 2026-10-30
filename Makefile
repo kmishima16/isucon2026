@@ -1,6 +1,6 @@
 # すべての操作の入口。設定は isu.env。   make help
 SHELL := /bin/bash
-.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status lint reboot-test portal measure-on measure-off measure-show snapshot compare local-seed local-up local-down patrol pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on
+.PHONY: help up down list doctor setup pull-app pull deploy prebench bench prof analyze score best status lint reboot-test portal measure-on measure-off measure-show snapshot compare local-seed local-up local-down patrol pp-up pp-collect pp-status pp-down pp-agent-off pp-agent-on docs-status docs-merge test
 
 help: ## このヘルプ
 	@grep -E '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  %-12s %s\n",$$1,$$2}'
@@ -21,6 +21,8 @@ status: ## アプリのログ（直近50行）
 
 lint: ## スクリプトの書き間違いを実行前に見つける（構文・変数直後の全角文字・shellcheck）
 	@bash scripts/lint.sh
+test: ## 道具の自動テスト（docs.sh・記録・hooks・lint）を、使い捨てのリポジトリで試す
+	@for t in tests/test_*.sh; do echo "== $$t"; bash "$$t" || exit 1; done
 
 # --- 準備 ---
 setup: ## 新しいサーバーに計測ツールを入れ、SETUP_CMD を実行（何度でも可）
@@ -59,6 +61,12 @@ measure-off: ## 計測を外す設定に書き換えて commit → deploy（最�
 	bash scripts/measure.sh off
 measure-on: ## 計測を戻す設定に書き換えて commit → deploy
 	bash scripts/measure.sh on
+
+# --- 文書（積み上げる文書の状態と取り込み） ---
+docs-status: ## results の無い design と、main に入っていない docs のコミットを出す
+	@bash scripts/docs.sh status
+docs-merge: ## docs ブランチを main に早送りで取り込む（doc-writer のコミットの直後に）
+	@bash scripts/docs.sh merge
 
 # --- 手元（docker compose） ---
 local-seed: ## サーバーから部分ダンプと静的ファイルを取る（最初の1回）
