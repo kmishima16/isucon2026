@@ -23,26 +23,34 @@ description: ISUCON 形式のチューニングで、操作役として施策の
 
 ## 立ち上げ（新しい問題）
 
-全台に ssh できるようになってから、人間が最初の施策を選ぶまでの手順です。調査役と検証役の作業は待たずに、順に進めます。人間に聞くのは、最初の施策を選んでもらうときだけです。`make up` は人間だけが実行します。
+全台に ssh できるようになってから、人間が最初の施策を選ぶまでの手順です。調査役と検証役の作業は待たずに、順に進めます。`make up` は人間だけが実行します。
+
+人間に頼むのは、本番のポータルのベンチ（初期ベンチと、3 つの施策の後の 2 回）と、最初の施策を選んでもらうことだけです。人間はマニュアルを読んでいるので、頼むのは最小限にします。
 
 1. isu.env を問題に合わせる（ホスト・アプリの場所・サービス名・`BUILD_CMD`・DB の接続・`BENCH_CMD`・`HEALTH_URL`・`SNAPSHOT_*`・`LOCAL_*`）。Go などが PATH に無ければ、`BUILD_CMD` に絶対パスで書く。問題ごとの違いは isu.env と server/ で吸収し、キットのスクリプトは直さない。
 2. `make setup`。
-3. `make pull-app` → コミット。調査役と検証役に、アプリを取り込んだことを、コミットの SHA を添えてメッセージで伝える。
-4. nginx と MySQL の設定を `make pull F=...` で取り込み、コミットする。
-5. 何も変えずに `make deploy` → 初期ベンチ → `make analyze` → `make snapshot`（回帰チェックの基準。snapshot は初期化を叩くので、本番ではポータルのベンチが終わってから取る）。
-   - 初期ベンチは、練習なら `make bench`。本番なら、人間にポータルのベンチを頼み、伝えられたスコアを `make score S=<点数>` で記録する。
-6. 初期データを手元に退避する。isu.env の `LOCAL_SEED` に全テーブルを並べ（`SHOW TABLES` で調べる）、`make local-seed` を実行する。ダンプは `local/data/initdb/00_seed.sql.gz`（git の管理外）、静的ファイルは `local/public/`（コミットする）に入る。壊したときの戻し先にもなる（中身は mysqldump）。検証役に、取ったことをメッセージで伝える。
-7. 人間を待たずに、次の 3 つの施策を 1 つずつ入れる。それぞれ 1 コミットにし、deploy → ベンチ → `make analyze` で確かめる。
-   - スローログで全件走査が明らかなクエリへの、インデックスの追加（sql/）。
+3. `make pull-app` → `chore: 初期アプリを取り込む` でコミットする。調査役と検証役に、コミットの SHA を添えてメッセージで伝える。
+4. 初期データを手元に退避する。サーバーのデータがまだ初期のままの、この時点で取る。
+   - isu.env の `LOCAL_SEED` に全テーブルを並べ（`SHOW TABLES` で調べる）、`LOCAL_DB_NAME`・`LOCAL_PUBLIC_REMOTE` も合わせて、`make local-seed` を実行する。
+   - ダンプは `local/data/initdb/00_seed.sql.gz`（git の管理外、中身は mysqldump）、静的ファイルは `local/public/` に入る。壊したときの戻し先にもなる（退避されるのは 1 つの DB だけ）。
+   - `local/public/` と isu.env を `chore: 初期データを手元に退避する` でコミットし、検証役にメッセージで伝える。
+5. nginx と MySQL の設定を `make pull F=...` で取り込み、コミットする。
+6. 何も変えずに `make deploy` → 初期ベンチ → `make analyze` → `make snapshot`（回帰チェックの基準）。
+   - 練習の初期ベンチは `make bench`。
+   - 本番の初期ベンチは、`make prebench` の後、人間にポータルのベンチを頼み、伝えられたスコアを `make score S=<点数>` で記録する。snapshot は初期化を叩くので、ポータルのベンチが終わってから取る。
+7. 人間を待たずに、次の 3 つの施策を入れる。それぞれ 1 コミットにする。
+   - スローログで全件走査が明らかなクエリへの、インデックスの追加（sql/）。足す前に、初期化の SQL（`/initialize` が流すもの）が `DROP TABLE` や `CREATE TABLE` でスキーマを作り直すかを見る。作り直すなら、インデックスを初期化の側にも入れる（sql/README.md）。
    - MySQL のバイナリログを止める（`disable_log_bin`）。
-   - `innodb_flush_log_at_trx_commit=2`。
+   - `innodb_flush_log_at_trx_commit=2`。正常な再起動ではデータは残る（失うのは OS ごと落ちたときの直近 1 秒だけ）ので、再起動試験は締めでまとめて行う。
+   - 練習では、1 つずつ deploy → `make bench` → `make analyze` で確かめる。
+   - 本番では、3 つをコミットして deploy してから、ポータルのベンチは 1 回だけ頼む（`make prebench` → 人間がベンチ → `make score` → `make analyze`）。人間を呼ぶ回数を減らすため。
 8. 調査役の要約がチャットで人間に届き、7 の後の analyze がそろったら、チェックリストの 3（候補を出す）に進む。検証役の画面と API の対応は待たない。
 
-ほかの役の作業がどこまで進んだかは、git log とファイルで確かめる。セッションどうしのメッセージは、届かないことがある。
+ほかの役の作業がどこまで進んだかは、`git log main` とファイルで確かめる。セッションどうしのメッセージは、届かないことがある。
 
 `make pp-up` は、人間に頼まれたときだけ。アプリに pprof を足すことは、最初の候補の 1 つとして出す。調査役から alp の URI のまとめ方（`ALP_MATCH`）を直すコミットが、検証役から手元の compose のコミットが届いたら、`git cherry-pick` で取り込む。
 
-詰まったら、自分で直せるところまで直す。isu.env と server/ で吸収できず、キットのスクリプトを直すしかないときは、CLAUDE.md の「困ったら」に従う。直せなければ、止まって人間に伝える。
+詰まったら、自分で直せるところまで直す。isu.env と server/ で吸収できず、キットのスクリプトを直すしかないときは、CLAUDE.md の「困ったら」に従う。直せなければ、止まって人間に伝える。キットについて気付いたことは、本番中は `logs/kit-notes.md` に一行で控え、終わってから isucon-kit の issue にする。
 
 ## 施策の回し方
 
@@ -69,7 +77,7 @@ description: ISUCON 形式のチューニングで、操作役として施策の
 2. `make deploy` を実行する。応答を作る処理（クエリ・テンプレート・キャッシュ）を変えた施策なら、`make compare` もする。nginx や MySQL の設定だけの施策では行わない。基準（`make snapshot`）は、意図した違いが出たときだけ取り直す。
 3. ベンチを回す。
    - BENCH_CMD でベンチできる練習では、`make bench E="<期待>"` を裏で回す（Bash の run_in_background）。このときは deploy がロックで止まるので、ベンチと重ならない。
-   - BENCH_CMD が空の本番では、`make prebench` の後、ポータルのベンチを人間に頼む。人間がポータルで見たスコアを伝えたら、`make score S=<点数> [F=<fail の件数>] E="<期待>"` で記録する。`make portal WATCH=1` は、ポータルから結果を取り出せると分かったときだけ使う。ポータルのベンチにはロックがかからないので、ポータルのベンチが終わるまで deploy しない。
+   - BENCH_CMD が空の本番では、`make prebench` の後、ポータルのベンチを人間に頼む。人間がポータルで見たスコアを伝えたら、`make score S=<点数> [F=<fail の件数>] E="<期待>"` で記録する（ベンチが fail していれば `PASS=false` も付ける。付けないと make best が拾う）。`make portal WATCH=1` は、ポータルから結果を取り出せると分かったときだけ使う。ポータルのベンチにはロックがかからないので、ポータルのベンチが終わるまで deploy しない。
 4. ベンチの間に、reviewer サブエージェントに diff（`git show <sha>`）と施策の狙いを渡す。並行して、次の候補を用意する。
 5. ベンチが終わったら `make analyze` を実行する。
 

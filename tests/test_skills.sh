@@ -29,7 +29,7 @@ echo "本番（ポータルからベンチ）の流れ"
 has "isu-ops がポータルの結果の記録を案内する" .claude/skills/isu-ops/SKILL.md 'make portal WATCH=1'
 has "isu-ops がポータルのベンチ中は deploy しないと書く" .claude/skills/isu-ops/SKILL.md 'ポータルのベンチが終わるまで deploy しない'
 has "止まる条件にポータルのベンチを頼むときがある" .claude/skills/isu-ops/SKILL.md 'ポータルのベンチを人間に頼む'
-has "bench.sh の案内が make portal を勧める" scripts/bench.sh 'make portal WATCH=1'
+has "bench.sh の案内は本番のスコアを make score で記録させる" scripts/bench.sh 'make score S=<点数>'
 
 echo "調査役の下ごしらえの取り込みと、作業ツリーの持ち主"
 has "isu-ops は下ごしらえを cherry-pick で載せる" .claude/skills/isu-ops/SKILL.md 'git cherry-pick'
@@ -88,7 +88,7 @@ has "isu-ops は人間を待たずにバイナリログを止める" .claude/ski
 has "isu-ops は人間を待たずに innodb_flush_log_at_trx_commit を 2 にする" .claude/skills/isu-ops/SKILL.md 'innodb_flush_log_at_trx_commit=2'
 has "isu-ops の立ち上げで初期データを退避する" .claude/skills/isu-ops/SKILL.md 'make local-seed'
 has "isu-ops は本番のスコアを make score で記録する" .claude/skills/isu-ops/SKILL.md 'make score S=<点数>'
-has "isu-research は取り込みのコミットを見てコードを読み始める" .claude/skills/isu-research/SKILL.md 'アプリを取り込んだコミット'
+has "isu-research は取り込みのコミットを見てコードを読み始める" .claude/skills/isu-research/SKILL.md 'chore: 初期アプリを取り込む'
 has "isu-local は立てる手間に上限がある" .claude/skills/isu-local/SKILL.md '30 分'
 has "isu-local は定期的な呼び出しを取りこぼさない" .claude/skills/isu-local/SKILL.md 'setInterval'
 has "isu-local はサーバーに ssh しない" .claude/skills/isu-local/SKILL.md 'ssh しない'
@@ -97,7 +97,29 @@ has "CLAUDE.md にキットを直してよい条件がある" CLAUDE.md '10 分�
 has "CLAUDE.md にメッセージが届かないときの扱いがある" CLAUDE.md 'メッセージは届かないことがある'
 has "README から検証役のスキルを辿れる" README.md '.claude/skills/isu-local/SKILL.md'
 
+echo "レビューの指摘（立ち上げの食い違いと抜け）"
+has "CLAUDE.md が立ち上げの 3 つの施策を、人間の判断の例外として書く" CLAUDE.md '立ち上げの 3 つの施策'
+has "CLAUDE.md が本番中のキットの気付きを控えに残させる" CLAUDE.md 'logs/kit-notes.md'
+has "isu-ops はアプリを取り込んだコミットの文言を決める" .claude/skills/isu-ops/SKILL.md 'chore: 初期アプリを取り込む'
+has "isu-ops は初期データの退避のコミットの文言を決める" .claude/skills/isu-ops/SKILL.md 'chore: 初期データを手元に退避する'
+has "isu-ops はインデックスの前に初期化の SQL を確かめる" .claude/skills/isu-ops/SKILL.md '初期化の SQL'
+has "isu-ops は本番では 3 つの施策のベンチを 1 回にまとめる" .claude/skills/isu-ops/SKILL.md 'ポータルのベンチは 1 回だけ'
+has "isu-research は main の git log を見る" .claude/skills/isu-research/SKILL.md 'git log main'
+has "isu-research は検証役の対応表のファイルを見る" .claude/skills/isu-research/SKILL.md 'map.md'
+has "isu-local は main の git log を見る" .claude/skills/isu-local/SKILL.md 'git log main'
+has "isu-local は対応表をファイルに書く" .claude/skills/isu-local/SKILL.md 'map.md'
+has "isu-local はほかの環境とのぶつかりを docker ps で見る" .claude/skills/isu-local/SKILL.md 'docker ps'
+has "isu-local はアプリの宛先の変数を書く" .claude/skills/isu-local/SKILL.md 'LOCAL_UPSTREAM'
+lacks "isu-local に、worktree なら道具がすべて断るという誤りが無い" .claude/skills/isu-local/SKILL.md '道具も断る'
+has "contest.md が fail のときに PASS=false を付けさせる" docs/flow/contest.md 'PASS=false'
+lacks "bench の手引きが本番で make portal を先に勧めない" docs/kit/bench.md 'ポータルでベンチ → `make portal`'
+lacks "portal の手引きが本番当日に URL を埋めさせない" docs/kit/portal.md '本番当日：ポータルを開発者ツールで見て'
+has "doc-writer が仕様メモの画像もコミットする" .claude/agents/doc-writer.md '画像'
+has "docs/README が overview の画像の置き場を決める" docs/README.md '画像'
+lacks "first-time が古い zip からキットを取り出さない" docs/flow/first-time.md 'unzip isucon-kit.zip'
+has "first-time がキットを履歴ごと取り込み、更新を取り込めるようにする" docs/flow/first-time.md 'git remote rename origin kit'
+
 echo "造語を使わない（ふつうの言葉で書く）"
-check "スキル・CLAUDE.md・手引きに造語が無い" "" "$(grep -rlE 'クリティカルパス|砂場|合図|しるし|待つもの' CLAUDE.md README.md .claude/skills .claude/agents docs/flow docs/kit 2>/dev/null || true)"
+check "スキル・CLAUDE.md・手引きに造語が無い" "" "$(grep -rlE 'クリティカルパス|砂場|合図|しるし|待つもの|知らせ' CLAUDE.md README.md .claude/skills .claude/agents docs/flow docs/kit scripts/hooks 2>/dev/null || true)"
 
 report

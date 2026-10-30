@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 input="$(cat)"
 # hooks で続けさせた後なら何もしない（無限に続けさせないため）
 if [ "$(jq -r '.stop_hook_active // false' <<<"$input")" = true ]; then exit 0; fi
-# 裏で doc-writer が動いていれば、終わったときの知らせで Claude がまた動くので、ここでは何もしない
+# 裏で doc-writer が動いていれば、それが終わったときに Claude がまた動くので、ここでは何もしない
 writers="$(jq '[(.background_tasks // [])[] | select(.type == "subagent" and .agent_type == "doc-writer")] | length' <<<"$input")"
 [ "$writers" = 0 ] || exit 0
 n="$(bash "$ROOT/scripts/docs.sh" unmerged)"

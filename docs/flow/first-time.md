@@ -7,9 +7,9 @@
 ## 手順
 
 ```bash
-# 1. キットから新しいリポジトリを作る（問題ごとに 1 つ）
-unzip isucon-kit.zip && mv isucon-kit practice-private-isu && cd practice-private-isu
-git init -b main && git add -A && git commit -m "chore: キットを取り込む"   # docs.sh と hooks は main を前提にする
+# 1. キットから新しいリポジトリを作る（問題ごとに 1 つ）。キットの履歴を引き継ぎ、キットの更新を後から取り込めるようにする
+git clone -b main ~/dev/isucon-kit ~/dev/practice-<問題名> && cd ~/dev/practice-<問題名>   # docs.sh と hooks は main を前提にする
+git remote rename origin kit   # キットの更新は git fetch kit && git merge kit/main で取り込む
 
 # 2. isu.env を問題に合わせる（private-isu はそのままでよい）。手元だけの環境変数は .envrc に書く
 cp .envrc.example .envrc && direnv allow

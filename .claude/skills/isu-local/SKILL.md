@@ -13,30 +13,31 @@ description: ISUCON 形式のチューニングで、検証役として手元の
 
 項目ごとに todo を作り、順に進める。
 
-1. 始められるかを確かめる。次の 2 つがそろっていれば始める。そろっていなければ、操作役からのメッセージを待つ。人間に「続けて」と言われたら、もう一度確かめる。
-   - main の git log に、アプリを取り込んだコミットがある。
-   - main のチェックアウトに、操作役が `make local-seed` で取ったダンプ（`local/data/initdb/00_seed.sql.gz`）がある。
-2. 自分の worktree を作る：`git worktree add .claude/worktrees/local -b local/<問題名> main`。ダンプは git の管理外なので、main のチェックアウトの `local/data/` を、worktree の `local/data/` に写す。
+1. 始められるかを確かめる。`git log main` に `chore: 初期データを手元に退避する` のコミットがあれば始める。このコミットは、操作役が `make local-seed` を終えてから作るので、ダンプは書き終わっている。無ければ、操作役からのメッセージを待つ。人間に「続けて」と言われたら、もう一度確かめる。
+2. 自分の worktree を作る：`git worktree add .claude/worktrees/local -b local/<問題名> main`。取り込んだコード・`local/public/`・isu.env は、このコミットに入っている。ダンプは git の管理外なので、main のチェックアウトの `local/data/` を、worktree の `local/data/` に写す。
 3. 手元の docker 環境を立てる。
    - 中身は、アプリと MySQL だけにする。画面の静的ファイルを nginx が返す問題なら、nginx も入れる。PowerDNS や決済の模擬などの付随のサービスは入れない。
-   - 取り込んだコードに compose があれば、それを使う。無ければ、`local/compose.yml` を問題に合わせて書き直す（キットのものは private-isu の例）。アプリはコードからビルドし、MySQL はダンプで初期化する。
+   - `make local-up` は、`local/compose.yml` を使う（ほかのパスは読まない）。取り込んだコードに compose があれば、その中身を `local/compose.yml` に写して合わせる。無ければ、`local/compose.yml` を問題に合わせて書き直す（キットのものは private-isu の例）。アプリはコードからビルドし、サービス名は `app` にする。MySQL はダンプで初期化する。
+   - isu.env の `LOCAL_NGINX_SITE`（取り込んだ nginx のサイト設定のパス）、`LOCAL_UPSTREAM`（サイト設定の中のアプリの宛先。既定の `localhost:8080` と違うとき）、`LOCAL_PORT`（手元で開くポート）を合わせる。既定値は scripts/lib.sh にある。
+   - `docker ps` で、ほかのリポジトリの環境が同じポートを使っていないかを見る。使っていれば `LOCAL_PORT` を変える。ほかの環境は止めない（人間に伝える）。
    - `make local-up` で立てる（docs/kit/local.md）。
-   - 30 分ほどで立たなければ、やめて人間に伝える。調査役には、コードから作った地図を使ってもらう。
+   - 30 分ほどで立たなければ、やめて人間に伝え、調査役にもメッセージで伝える。調査役には、コードから作った地図を使ってもらう。
 4. 画面を巡る。
    - Playwright か Claude のブラウザで、主な画面を開く。ログイン・投稿などの主な操作もする。
    - 各画面で 30 秒ほど待ち、その間の通信を記録する。定期的な呼び出し・SSE・WebSocket は、すぐには現れないため。
    - ビルド済みのフロントエンドの JS から、setInterval・EventSource・WebSocket を検索し、通信の記録と突き合わせる。
    - サブドメインなどの名前解決が要るときは、Mac の設定を変えず、ブラウザの起動オプション（Chromium の `--host-resolver-rules` など）で済ませる。
    - 付随のサービスが無くて動かない画面は「未確認」とし、先に進む。
-5. 調査役に渡す。
-   - 画面ごとに、主な部品・呼ぶ API（メソッド・パス・呼ぶ時：表示時／操作時／定期）・ログインが要るか・データを書き込むかをまとめる。
-   - スクリーンショットは、主な画面だけにする（多くて 10 枚、幅 1280px 程度の PNG）。worktree の `logs/screens/`（git の管理外）に置き、そのパスを伝える。調査役が、仕様メモと一緒に docs/overview に入れる。
-6. compose を残す。worktree で `feat: 手元の docker 環境を <問題名> に合わせる` の 1 コミットにし、SHA を操作役に伝える。操作役が `git cherry-pick` で取り込む。
+5. 調査役に渡す。メッセージは届かないことがあるので、中身はファイルに書く。
+   - 画面ごとに、主な部品・呼ぶ API（メソッド・パス・呼ぶ時：表示時／操作時／定期）・ログインが要るか・データを書き込むかを、worktree の `logs/screens/map.md`（git の管理外）に書く。調査役は、このファイルができたかを見る。
+   - スクリーンショットは、主な画面だけにする（多くて 10 枚、幅 1280px 程度の PNG）。同じ `logs/screens/` に置く。調査役が doc-writer に渡し、仕様メモと一緒に docs/overview に入る。
+   - 書き終えたら、調査役にパス（`.claude/worktrees/local/logs/screens/`）をメッセージで伝える。
+6. compose を残す。worktree で、`local/compose.yml` と isu.env の `LOCAL_*` を `feat: 手元の docker 環境を <問題名> に合わせる` の 1 コミットにし、SHA を操作役に伝える。操作役が `git cherry-pick` で取り込む。
 7. 人間に「画面と API の対応を調査役に渡した。このセッションは閉じてよい」と伝えて終わる。
 
 ## してはいけないこと
 
-- サーバーに ssh しない。deploy・bench など、サーバーを変える操作をしない（worktree では道具も断る）。
+- サーバーに ssh しない。deploy・bench・local-seed など、サーバーを変える道具は worktree では断られるが、pull・analyze・prof のように ssh する道具は断られないので、自分で打たない。手元の道具（`make local-up`・`make local-down`）だけを使う。
 - 手元の環境でベンチを回さない。性能の判断に使わない。
 - スクリーンショットや画面の中身を、手元と private リポジトリの外に出さない。
 
@@ -44,12 +45,12 @@ description: ISUCON 形式のチューニングで、検証役として手元の
 
 ```mermaid
 flowchart TD
-  check{"取り込みのコミットとダンプがある？"} -- ない --> wait["操作役のメッセージを待つ"] --> check
+  check{"git log main に退避のコミットがある？"} -- ない --> wait["操作役のメッセージを待つ"] --> check
   check -- ある --> wt["worktree を作り、ダンプを写す"]
   wt --> up{"30 分ほどで立った？"}
   up -- いいえ --> stop["やめて人間に伝える"]
   up -- はい --> browse["画面を巡り、通信を記録する"]
-  browse --> hand["調査役に、対応表とスクリーンショットのパスを渡す"]
+  browse --> hand["map.md と画像を書き、調査役にパスを伝える"]
   hand --> commit["compose を 1 コミットにし、SHA を操作役に伝える"]
   commit --> done["人間に終わったと伝える"]
 ```

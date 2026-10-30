@@ -26,6 +26,6 @@
 
 ## 更新のしかた
 
-- 本番当日：ポータルを開発者ツールで見て、isu.env の `PORTAL_RESULT_URL` を書く。JSON の形が既定（.pass / .score / .fail / .messages、ID なし）と違えば `PORTAL_JQ_PICK`・`PORTAL_JQ_ID`・`PORTAL_JQ_PASS`・`PORTAL_JQ_SCORE`・`PORTAL_JQ_FAIL`・`PORTAL_JQ_MESSAGES` も書く（既定値は scripts/lib.sh）。
+- 使うと決めたら（本番の既定は `make score`）：ポータルを開発者ツールで見て、isu.env の `PORTAL_RESULT_URL` を書く。JSON の形が既定（.pass / .score / .fail / .messages、ID なし）と違えば `PORTAL_JQ_PICK`・`PORTAL_JQ_ID`・`PORTAL_JQ_PASS`・`PORTAL_JQ_SCORE`・`PORTAL_JQ_FAIL`・`PORTAL_JQ_MESSAGES` も書く（既定値は scripts/lib.sh）。
 - Cookie は、人間が .envrc の `PORTAL_COOKIE` に写す。Claude はこの値を読まない・書かない。
 - 直したら `make lint`。`PORTAL_RESULT_CMD` で 1 回試す。
