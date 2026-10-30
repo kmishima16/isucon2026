@@ -82,4 +82,10 @@ git checkout -q -b other
 if bash scripts/docs.sh merge >/dev/null 2>&1; then ng "失敗で終わる"; else ok "失敗で終わる"; fi
 finish_fixture
 
+echo "main ブランチが無いとき（git init の既定が master のリポジトリ）"
+make_fixture
+git branch -q -m main master
+if out="$(bash scripts/docs.sh pending 2>&1)"; then ng "pending は失敗で終わる"; else contains "pending は失敗で終わり、理由を出す" "main ブランチがありません" "$out"; fi
+finish_fixture
+
 report

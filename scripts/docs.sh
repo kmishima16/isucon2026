@@ -12,6 +12,8 @@ MAIN_BRANCH=main
 DOCS_BRANCH=docs
 DOCS_WORKTREE="$ROOT/.claude/worktrees/docs"   # doc-writer が書く場所（.claude/agents/doc-writer.md と揃える）
 SCORES=docs/scores.tsv
+# main が無いと、ls-tree の失敗が {} の中で消え、pending が何も言わずに空になるので、先に止める
+git rev-parse --verify -q "refs/heads/$MAIN_BRANCH" >/dev/null || die "${MAIN_BRANCH} ブランチがありません。git branch -m <今のブランチ> ${MAIN_BRANCH} で名前を変えてください"
 
 has_docs_branch() { git rev-parse --verify -q "refs/heads/$DOCS_BRANCH" >/dev/null; }
 

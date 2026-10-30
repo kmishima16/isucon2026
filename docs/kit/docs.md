@@ -22,6 +22,7 @@
 
 - docs-merge の後、`make docs-status` が「docs ブランチはすべて main に入っています」を出す。
 - 衝突で止まったら、表示された worktree で手で直してから、もう一度 `make docs-merge`。
+- 「main ブランチがありません」と出たら、`git branch -m <今のブランチ> main` で名前を変える（docs.sh・hooks・bench の次の一手は main を前提にする）。
 
 ## 更新のしかた
 
