@@ -32,7 +32,7 @@ for h in $HOSTS; do
     if [ -d "$WORK/server/$d" ]; then rsync -rlpt -e "$RSYNC_E" "$WORK/server/$d/" "$h:$STAGE/"; fi
   done
   rsh "$h" "sudo bash -s -- $STAGE /var/backups/isu-deploy/$T-$SHA" < scripts/apply-overlay.sh \
-    || die "[$h] 設定の反映に失敗（壊れた設定は元に戻してあります）。上のメッセージを確認。"
+    || die "[$h] 設定の反映に失敗。上のメッセージを確認（nginx・MySQL の設定が原因なら、元に戻してあります）。"
 done
 
 for h in $APP_HOSTS; do

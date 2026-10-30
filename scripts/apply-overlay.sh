@@ -4,7 +4,7 @@
 #   $2 = 置き換え前のファイルを退避する場所
 # 変わったファイルだけを反映し、nginx / MySQL が起動できない設定なら自動で元に戻して失敗する。
 set -euo pipefail
-STAGE="$1"; BK="$2"; DEST="${DEST_ROOT:-}"   # DEST_ROOT はテスト用
+STAGE="$1"; BK="$2"; DEST="${DEST_ROOT:-}"   # DEST_ROOT はテスト用（systemctl・nginx は、テストが PATH に置く代役を使う）
 
 changed=()
 cd "$STAGE"
@@ -37,19 +37,24 @@ restore() {
   done
 }
 touched() { printf '%s\n' "${changed[@]}" | grep -q "^$1"; }
-[ -n "$DEST" ] && exit 0   # テスト時はここまで
 
 if touched etc/systemd/; then systemctl daemon-reload; fi
 if touched etc/sysctl; then sysctl --system >/dev/null || echo "  [warn] sysctl --system でエラー"; fi
 
+# 複数台では、役割に合わせて nginx や MySQL を止めてある台がある。止めてあるサービスは起こさない（設定の確かめはする）
 if touched etc/nginx/ && command -v nginx >/dev/null; then
   if ! nginx -t 2>&1; then restore; nginx -t >/dev/null 2>&1 && echo "  nginx は元の設定で無事です"; exit 3; fi
-  systemctl reload nginx
+  if ! systemctl is-active -q nginx; then
+    echo "  nginx は止まっているので reload しない"
+  elif ! systemctl reload nginx; then
+    restore; systemctl reload nginx && echo "  nginx は元の設定で reload しました"; exit 3
+  fi
 fi
 
 if touched etc/mysql/; then
   for db in mysql mariadb; do
     systemctl list-unit-files --type=service --no-legend "$db.service" | grep -q . || continue
+    if ! systemctl is-active -q "$db"; then echo "  $db は止まっているので restart しない"; break; fi
     if ! systemctl restart "$db"; then
       journalctl -u "$db" -n 15 --no-pager || true
       restore; systemctl restart "$db" && echo "  $db は元の設定で起動しました"
