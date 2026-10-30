@@ -9,12 +9,11 @@
 - `make score S=<点数>` は、ポータルのベンチなどを手で記録する。
 - `make best` は、記録の上位を出す（良かったコミットを探す）。
 - 記録したら、docs/scores.tsv だけをその場でコミットする（`chore: ベンチ結果を記録する`）。未コミットのまま次の deploy が止まるのを防ぐため。ほかの変更は巻き込まない。
-- 記録の後に、次の一手を出す。results の無い design がベンチ済みになっていれば「results を書かせる」と出す。
 - HEAD とデプロイ済みで docs/ 以外が違えば、警告する。
 
 ## いつ使うか
 
-- deploy して compare を確かめた後（CLAUDE.md の出来事ごとの手順 5）。前面で実行する（裏で実行すると、hooks の案内が出る時点が決まらないため）。
+- deploy した後（施策の回し方の 4。.claude/skills/isu-ops/SKILL.md）。裏で回してよい。deploy はロックで止まるので重ならない。
 - 本番：`make prebench` → ポータルでベンチ → `make portal`（docs/kit/portal.md）か `make score`。
 
 ## 動かし方
@@ -23,7 +22,7 @@
 
 ## 確かめ方
 
-- 最後に「記録: rev=... pass=... score=...」と次の一手が出る。`git log -1` が `chore: ベンチ結果を記録する` になっている。
+- 最後に「記録: rev=... pass=... score=...」が出る。`git log -1` が `chore: ベンチ結果を記録する` になっている。
 - スコアを読み取れなかったときは、logs/<時刻>-bench.txt を見て `make score S=<点数>`。
 - docs/scores.tsv の列は time・rev・pass・score・memo・expect。
 

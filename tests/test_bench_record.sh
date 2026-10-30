@@ -14,17 +14,6 @@ check "ほかの変更はステージされたまま残る" "A  other.txt" "$(gi
 check "記録は未コミットで残らない" "" "$(git status --porcelain docs/scores.tsv)"
 finish_fixture
 
-echo "次の一手"
-make_fixture
-out="$(S=1 bash scripts/bench.sh score 2>&1)"
-contains "design が無いとき" "対応する design はありません" "$out"
-write_doc . docs/design/001_a.md "design"
-git add docs/design/001_a.md
-commit_at . "2020-01-01 00:00:00" "docs: design"
-out="$(S=2 bash scripts/bench.sh score 2>&1)"
-contains "ベンチ済みの design があるとき" "results を書かせる（docs/design/001_a.md）" "$out"
-finish_fixture
-
 echo "記録のコミットに失敗したとき"
 make_fixture
 printf '#!/bin/sh\nexit 1\n' > .git/hooks/pre-commit
