@@ -5,7 +5,7 @@ TTL 切れで練習環境が消えたあと、前回の最終コミットの状�
 ## 手順
 
 1. 人間が `make up` を実行する（ターミナルで AWS にログインしておき、.envrc の `AWS_PROFILE` がそのプロファイルを指していること）。
-2. `direnv exec . make setup` で、計測ツールと pprotein-agent を入れ直す。
+2. `direnv exec . make setup` で、計測ツールと pprotein-agent を入れ直す。台は AMI の状態に戻っているので、isu.env の `SETUP_CMD`（env.sh の書き換えや DNS のゾーンの入れ直しなど）もここで流れる。
 3. `direnv exec . make deploy` で、前回の最終コミットの状態に戻す。sql/*.sql もここで流れる。
 4. `direnv exec . make doctor` で、NG が無いことを確かめる。
 5. 画面で計測を見るなら `make pp-up`。
