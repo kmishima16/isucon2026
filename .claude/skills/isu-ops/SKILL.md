@@ -14,16 +14,35 @@ description: ISUCON 形式のチューニングで、操作役として施策の
 始めに、次の項目ごとに todo を作り、順に進める。3〜7 は、人間が止めるまで繰り返す。
 
 1. 状態を集める：`make doctor`・`make best`・`git log --oneline -15`・直近の analyze（`ls -t logs/*-alp.txt | head -1` など）・`gh issue list`。
-2. 現状を短く人間に伝える。形は決めない。新しい問題で記録が無ければ、先に「最初の一周」を回す。
+2. 現状を短く人間に伝える。形は決めない。新しい問題で記録が無ければ、先に下の「立ち上げ」を回す。
 3. 候補を出す。
 4. ゲート：人間が選ぶ。
 5. ゲート：小さな設計の OK を取る（規模が中以上のとき）。
 6. 実装して試す。
 7. 確かめて伝え、3 に戻る。
 
-### 最初の一周（新しい問題）
+## 立ち上げ（新しい問題）
 
-docs/flow/first-time.md の手順 3〜6 を回す：`make setup` → `make pull-app` → コミット → `make deploy` → `make bench` → `make analyze` → `make snapshot`（回帰チェックの基準。isu.env の `SNAPSHOT_*` を問題に合わせてから。snapshot は初期化を叩くので、本番ではポータルのベンチが終わってから取る）。`make up` は人間だけが実行する。
+全台に ssh できるようになってから、人間が最初の施策を選ぶまでの手順です。調査役と検証役の作業は待たずに、順に進めます。人間に聞くのは、最初の施策を選んでもらうときだけです。`make up` は人間だけが実行します。
+
+1. isu.env を問題に合わせる（ホスト・アプリの場所・サービス名・`BUILD_CMD`・DB の接続・`BENCH_CMD`・`HEALTH_URL`・`SNAPSHOT_*`・`LOCAL_*`）。Go などが PATH に無ければ、`BUILD_CMD` に絶対パスで書く。問題ごとの違いは isu.env と server/ で吸収し、キットのスクリプトは直さない。
+2. `make setup`。
+3. `make pull-app` → コミット。調査役と検証役に、アプリを取り込んだことを、コミットの SHA を添えてメッセージで伝える。
+4. nginx と MySQL の設定を `make pull F=...` で取り込み、コミットする。
+5. 何も変えずに `make deploy` → 初期ベンチ → `make analyze` → `make snapshot`（回帰チェックの基準。snapshot は初期化を叩くので、本番ではポータルのベンチが終わってから取る）。
+   - 初期ベンチは、練習なら `make bench`。本番なら、人間にポータルのベンチを頼み、伝えられたスコアを `make score S=<点数>` で記録する。
+6. 初期データを手元に退避する。isu.env の `LOCAL_SEED` に全テーブルを並べ（`SHOW TABLES` で調べる）、`make local-seed` を実行する。ダンプは `local/data/initdb/00_seed.sql.gz`（git の管理外）、静的ファイルは `local/public/`（コミットする）に入る。壊したときの戻し先にもなる（中身は mysqldump）。検証役に、取ったことをメッセージで伝える。
+7. 人間を待たずに、次の 3 つの施策を 1 つずつ入れる。それぞれ 1 コミットにし、deploy → ベンチ → `make analyze` で確かめる。
+   - スローログで全件走査が明らかなクエリへの、インデックスの追加（sql/）。
+   - MySQL のバイナリログを止める（`disable_log_bin`）。
+   - `innodb_flush_log_at_trx_commit=2`。
+8. 調査役の要約がチャットで人間に届き、7 の後の analyze がそろったら、チェックリストの 3（候補を出す）に進む。検証役の画面と API の対応は待たない。
+
+ほかの役の作業がどこまで進んだかは、git log とファイルで確かめる。セッションどうしのメッセージは、届かないことがある。
+
+`make pp-up` は、人間に頼まれたときだけ。アプリに pprof を足すことは、最初の候補の 1 つとして出す。調査役から alp の URI のまとめ方（`ALP_MATCH`）を直すコミットが、検証役から手元の compose のコミットが届いたら、`git cherry-pick` で取り込む。
+
+詰まったら、自分で直せるところまで直す。isu.env と server/ で吸収できず、キットのスクリプトを直すしかないときは、CLAUDE.md の「困ったら」に従う。直せなければ、止まって人間に伝える。
 
 ## 施策の回し方
 
@@ -50,7 +69,7 @@ docs/flow/first-time.md の手順 3〜6 を回す：`make setup` → `make pull-
 2. `make deploy` を実行する。応答を作る処理（クエリ・テンプレート・キャッシュ）を変えた施策なら、`make compare` もする。nginx や MySQL の設定だけの施策では行わない。基準（`make snapshot`）は、意図した違いが出たときだけ取り直す。
 3. ベンチを回す。
    - BENCH_CMD でベンチできる練習では、`make bench E="<期待>"` を裏で回す（Bash の run_in_background）。このときは deploy がロックで止まるので、ベンチと重ならない。
-   - BENCH_CMD が空の本番では、`make prebench` の後、ポータルのベンチを人間に頼む。`make portal WATCH=1 E="<期待>"` で結果を待って記録する。ポータルのベンチにはロックがかからないので、ポータルのベンチが終わるまで deploy しない。
+   - BENCH_CMD が空の本番では、`make prebench` の後、ポータルのベンチを人間に頼む。人間がポータルで見たスコアを伝えたら、`make score S=<点数> [F=<fail の件数>] E="<期待>"` で記録する。`make portal WATCH=1` は、ポータルから結果を取り出せると分かったときだけ使う。ポータルのベンチにはロックがかからないので、ポータルのベンチが終わるまで deploy しない。
 4. ベンチの間に、reviewer サブエージェントに diff（`git show <sha>`）と施策の狙いを渡す。並行して、次の候補を用意する。
 5. ベンチが終わったら `make analyze` を実行する。
 
@@ -71,23 +90,26 @@ docs/flow/first-time.md の手順 3〜6 を回す：`make setup` → `make pull-
 - ベンチが fail した。次のベンチは回さず、原因を見るか戻す。
 - 取り返しのつきにくい変更に当たった（CLAUDE.md の守ること 6）。
 - 選ばれた分が尽きた（4 のゲート）。
-- ポータルのベンチを人間に頼むとき（本番）。頼んだら、`make portal WATCH=1` で結果を待つ間に、reviewer と次の候補を進める。
+- ポータルのベンチを人間に頼むとき（本番）。人間がスコアを伝えるまでの間に、reviewer と次の候補を進める。
 
 gh が失敗したら（認証切れ・通信の失敗）、人間に伝えて施策は続ける。issue の操作は後に回す。
+
+道具が使えないときは、docs/flow/contest.md の「道具が使えないとき」のとおりに置き換えて進める。
 
 ## 締め（人間に言われたとき）
 
 1. `make measure-off`（docs/kit/measure.md）。
 2. pprotein を使っていれば `make pp-agent-off`。
 3. `make reboot-test`。
-4. `make bench`（本番はポータルでベンチ → `make portal`）。
+4. `make bench`（本番は人間にポータルのベンチを頼み、伝えられたスコアを `make score` で記録する）。
 5. 人間の指示で、doc-writer に retro を書かせる。返ったら `make docs-merge`。
 
 ## 流れ
 
 ```mermaid
 flowchart TD
-  start["1-2. 状態を集めて現状を伝える"] --> cand["3. 候補を出す"]
+  start["1-2. 状態を集めて現状を伝える"] -- 新しい問題 --> boot["立ち上げ（最初の 3 つの施策まで）"] --> cand
+  start --> cand["3. 候補を出す"]
   cand --> pick{"4. 人間が選ぶ"}
   pick --> size{"規模が中以上？"}
   size -- はい --> design{"5. 小さな設計の OK"}

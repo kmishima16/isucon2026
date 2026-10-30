@@ -38,7 +38,7 @@ gh repo create <名前> --private --source . --remote origin
 
 ここまで通ったら、Claude Code でこのフォルダを開きます。最初に開いたときは、フォルダの信頼の確認に同意します。同意するまで hooks（docs/kit/hooks.md）が動きません。
 
-続けて、Claude Code で 2 つのセッションを開きます。操作役のセッションで `/isu-ops`、調査役のセッションで `/isu-research` を打ちます（CLAUDE.md の役割）。手順 3〜6 は、`/isu-ops` に任せても構いません。
+続けて、Claude Code で 3 つのセッションを同時に開きます。操作役に `/isu-ops`、調査役に `/isu-research`、検証役に `/isu-local` を打ちます（CLAUDE.md の役割）。手順 3〜6 は、`/isu-ops` の「立ち上げ」に任せても構いません。
 
 ## 取り込むときの注意
 

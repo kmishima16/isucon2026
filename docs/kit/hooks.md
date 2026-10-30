@@ -5,7 +5,7 @@ Claude Code の hooks で、役割の確認と記録の状態を自動で読み�
 ## 役割
 
 - .claude/settings.json の hooks で、scripts/hooks/ の 2 つを動かす。判定は scripts/docs.sh に任せ、hooks は整形と表示だけを受け持つ。
-  - session-start.sh：セッションの開始・再開・/clear・compact・fork のときに、役割（/isu-ops か /isu-research）の確認・ベストスコアの上位 5 件・持ち越しの issue の見方（gh issue list）・docs の状態を読み込ませる。
+  - session-start.sh：セッションの開始・再開・/clear・compact・fork のときに、役割（/isu-ops・/isu-research・/isu-local）の確認・ベストスコアの上位 5 件・持ち越しの issue の見方（gh issue list）・docs の状態を読み込ませる。
   - before-stop.sh：作業を終える前に、main に入っていない docs（doc-writer の overview・retro）があれば、1 回だけ作業を続けさせる。裏で doc-writer が動いていれば何もしない。調査役の worktree でも同じ案内が出るが、取り込むのは操作役（make docs-merge は main でしか動かない）。
 - 通信はしない（gh も呼ばない）。各 hook の上限は 10 秒。入力の JSON は jq で読む（macOS に入っている）。
 

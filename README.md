@@ -13,6 +13,7 @@
 
 - [操作役 /isu-ops](.claude/skills/isu-ops/SKILL.md)：候補を出し、人間が選んだ施策を実装・deploy・bench して伝える。サーバーに触れるのはこの役だけ。
 - [調査役 /isu-research](.claude/skills/isu-research/SKILL.md)：採点の仕組み・仕様・コードから構造的な案を出し、大きな案を worktree で下ごしらえする。
+- [検証役 /isu-local](.claude/skills/isu-local/SKILL.md)：手元の docker 環境で画面を巡り、画面ごとに呼ぶ API とスクリーンショットを調査役に渡す。
 - [reviewer](.claude/agents/reviewer.md)：施策の diff を敵対的にレビューする。
 - [doc-writer](.claude/agents/doc-writer.md)：overview と retro を書く。
 - [issue のテンプレート](.github/ISSUE_TEMPLATE/kaizen.md)：持ち越す改善項目（経緯・わかったこと・原因・完了の条件）。

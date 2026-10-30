@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
 echo "# 今の状態（scripts/hooks/session-start.sh が読み込ませた）"
-echo "決まりは CLAUDE.md。役割は人間が /isu-ops（操作役）か /isu-research（調査役）で決める。決まっていなければ、サーバーを変える操作をせず人間に聞く。"
+echo "決まりは CLAUDE.md。役割は人間が /isu-ops（操作役）・/isu-research（調査役）・/isu-local（検証役）のどれかで決める。決まっていなければ、サーバーを変える操作をせず人間に聞く。"
 echo
 echo "## ベストスコア（上位 5 件、docs/scores.tsv）"
 rows=0

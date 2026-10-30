@@ -4,7 +4,7 @@ source "$(dirname "$0")/helpers.sh"
 cd "$REPO_SRC"
 
 echo "役割のスキル"
-for name in isu-ops isu-research; do
+for name in isu-ops isu-research isu-local; do
   f=".claude/skills/$name/SKILL.md"
   check "$name の SKILL.md がある" "yes" "$([ -f "$f" ] && echo yes || echo no)"
   check "$name の name が一致する" "name: $name" "$(grep -m1 '^name:' "$f" 2>/dev/null || true)"
@@ -74,8 +74,30 @@ has "isu-ops がポータルのベンチ中に snapshot を取らせない" .cla
 has "snapshot の手引きがベンチとぶつかることを書く" docs/kit/snapshot.md 'ポータルのベンチが終わってから'
 has "first-time が snapshot の時期を書く" docs/flow/first-time.md 'ポータルのベンチが終わってから'
 
-echo "本番の時間割"
+echo "本番の手順"
 has "contest.md に初期データの退避がある" docs/flow/contest.md 'mysqldump'
 has "contest.md に最終のデータの確認がある" docs/flow/contest.md 'データが残っていることを確かめる'
+lacks "contest.md に時刻の時間割が無い（時刻のガイドは人間向けに別に置く）" docs/flow/contest.md '10:00'
+has "contest.md のスコアの記録は make score が既定" docs/flow/contest.md 'make score S=<点数>` を既定'
+has "contest.md に道具が使えないときの置き換えがある" docs/flow/contest.md '道具が使えないとき'
+has "portal の手引きが本番の既定を make score と書く" docs/kit/portal.md 'make score S=<点数>` で記録するのを既定'
+
+echo "立ち上げ（環境が立ってから、人間が最初の施策を選ぶまで）"
+has "isu-ops に立ち上げの手順がある" .claude/skills/isu-ops/SKILL.md '## 立ち上げ'
+has "isu-ops は人間を待たずにバイナリログを止める" .claude/skills/isu-ops/SKILL.md 'disable_log_bin'
+has "isu-ops は人間を待たずに innodb_flush_log_at_trx_commit を 2 にする" .claude/skills/isu-ops/SKILL.md 'innodb_flush_log_at_trx_commit=2'
+has "isu-ops の立ち上げで初期データを退避する" .claude/skills/isu-ops/SKILL.md 'make local-seed'
+has "isu-ops は本番のスコアを make score で記録する" .claude/skills/isu-ops/SKILL.md 'make score S=<点数>'
+has "isu-research は取り込みのコミットを見てコードを読み始める" .claude/skills/isu-research/SKILL.md 'アプリを取り込んだコミット'
+has "isu-local は立てる手間に上限がある" .claude/skills/isu-local/SKILL.md '30 分'
+has "isu-local は定期的な呼び出しを取りこぼさない" .claude/skills/isu-local/SKILL.md 'setInterval'
+has "isu-local はサーバーに ssh しない" .claude/skills/isu-local/SKILL.md 'ssh しない'
+has "CLAUDE.md に検証役がある" CLAUDE.md '/isu-local'
+has "CLAUDE.md にキットを直してよい条件がある" CLAUDE.md '10 分ほどで直せる'
+has "CLAUDE.md にメッセージが届かないときの扱いがある" CLAUDE.md 'メッセージは届かないことがある'
+has "README から検証役のスキルを辿れる" README.md '.claude/skills/isu-local/SKILL.md'
+
+echo "造語を使わない（ふつうの言葉で書く）"
+check "スキル・CLAUDE.md・手引きに造語が無い" "" "$(grep -rlE 'クリティカルパス|砂場|合図|しるし|待つもの' CLAUDE.md README.md .claude/skills .claude/agents docs/flow docs/kit 2>/dev/null || true)"
 
 report

@@ -17,9 +17,12 @@ Webアプリのパフォーマンスチューニング（ISUCON形式）を、�
 
 - 操作役：人間が `/isu-ops` と打ったセッション（`.claude/skills/isu-ops/SKILL.md`）。deploy・bench・analyze・reboot-test・measure-* を実行するのは、この役だけ。main のチェックアウトで動く（worktree では、サーバーや記録を変える道具が断る）。
 - 調査役：人間が `/isu-research` と打ったセッション（`.claude/skills/isu-research/SKILL.md`）。ssh は読み取りだけ。コードを変えるのは自分の worktree の中だけ。
+- 検証役：人間が `/isu-local` と打ったセッション（`.claude/skills/isu-local/SKILL.md`）。手元の docker 環境で画面を巡り、画面ごとに呼ぶ API を調査役に渡したら終わる。サーバーには ssh しない。ベンチも回さない。
 - レビュー役：サブエージェント reviewer（`.claude/agents/reviewer.md`）。操作役が施策ごとに diff を渡す。
 - 文書：サブエージェント doc-writer（`.claude/agents/doc-writer.md`）。overview と retro だけを書く。返ったら操作役が `make docs-merge`。
-- どちらのスキルも打たれていないセッションは、サーバーを変える操作をしない。
+- 新しい問題では、3 つのセッションを同時に開く。役どうしの連絡は、セッションどうしのメッセージで送る。施策を選ぶなどの判断は、必ず人間を通す。
+- メッセージは届かないことがある。ほかの役の作業がどこまで進んだかは、git log とファイルで確かめてから進む。止まっているセッションには、人間が「続けて」と打つ。
+- どのスキルも打たれていないセッションは、サーバーを変える操作をしない。
 - main のチェックアウトの作業ツリーを書き換えるのは操作役だけ。ほかの役がコードや道具を直すときは、自分の worktree で 1 コミットにし、操作役が `git cherry-pick` で取り込む（混ざると、ベンチで効果を切り分けられない・deploy が止まる）。
 
 ## 守ること
@@ -65,6 +68,7 @@ issue では（GitHub から読むので、手元のパスや行番号は見え�
 ## 困ったら
 
 - 何かおかしい → `make doctor`（ssh・サービス・ディスクなどを診断して次の一手を出す）。
+- 道具（キットのスクリプト）が問題に合わない → まず isu.env と server/ で吸収する。スクリプトを直すのは、操作役の手順が止まっていて、10 分ほどで直せるときだけ。それ以外は手で回避し、isucon-kit に issue を立てる。道具ごとの置き換えは docs/flow/contest.md の「道具が使えないとき」。
 - ssh がつながらない → 人間に伝える（IP 変更なら人間が `isuenv ssh <環境名>` を実行する）。
 - 戻したい → `make best` で良かったコミットを探し、`make deploy REV=<rev>`。
 - 設定が壊れていた場合、nginx / MySQL は deploy が自動で元に戻している（退避先は `/var/backups/isu-deploy/`）。
