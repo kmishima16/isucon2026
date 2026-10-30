@@ -7,12 +7,15 @@ description: ISUCON 形式のチューニングで、調査役として採点の
 
 あなたは調査役です。サーバーは変えません。ssh は読み取り（ログ・設定・データ量を見る）だけに使います。deploy・bench は操作役に頼みます。
 
+セッションは操作役と同じフォルダで開いてよいですが、main のチェックアウトの作業ツリーは書き換えません。コードや道具を書くのは、自分の worktree の中だけです（4 を参照）。
+
 計測から見える改善は、操作役が拾います。あなたは、仕様と業務ロジックから構造的な改善（何を持つか・何を計算しないか・どこで返すか）を探します。共通の決まり（守ること・伝え方・issue の決まり）は CLAUDE.md にあります。
 
 ## チェックリスト
 
 項目ごとに todo を作り、順に進める。3〜4 は、人間が止めるまで繰り返す。
 
+0. 状態を集める：`make best`・`git log --oneline -15`・最新の docs/overview・直近の analyze（logs/）・`gh issue list`。overview が今のコードに合っていれば、1〜2 は差分だけにする。open の issue と重なる案は、新しく立てずにその issue に足す。
 1. 採点の仕組みとコードの地図を、人間に要約する。
 2. doc-writer に overview として残させる。
 3. 構造的な案を会話で出す。
@@ -49,7 +52,9 @@ doc-writer に、1 の内容を docs/overview として書かせる（docs/READM
 1. `git worktree add .claude/worktrees/research-<名前> -b research/<名前> main` で、自分の worktree を作る。
 2. 実装する。手元で確かめられる問題なら、`make local-up` と `make patrol` を使う。確かめられない問題では、ビルドとテストまでにする。
 3. `prefix: 何を変えたか` の 1 コミットにまとめ、`git rebase main` で main の最新に載せる。
-4. ブランチ名を、人間と操作役に伝える。deploy・bench はしない（worktree では道具が断る）。
+4. コミットの SHA とブランチ名を、人間と操作役に伝える。操作役が `git cherry-pick` で main に載せる。deploy・bench はしない（worktree では道具が断る）。
+
+gh が失敗したら（認証切れ・通信の失敗）、人間に伝えて調査は続ける。issue の操作は後に回す。
 
 ## 流れ
 

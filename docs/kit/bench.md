@@ -14,7 +14,7 @@
 
 ## いつ使うか
 
-- deploy した後（.claude/skills/isu-ops/SKILL.md の 6）。裏で回してよい。deploy はロックで止まるので重ならない。
+- deploy した後（.claude/skills/isu-ops/SKILL.md の 6）。BENCH_CMD でベンチするときは、裏で回してよい。deploy はロックで止まるので重ならない。ポータルのベンチにはロックがかからないので、終わるまで deploy しない。
 - 本番：`make prebench` → ポータルでベンチ → `make portal`（docs/kit/portal.md）か `make score`。
 
 ## 動かし方

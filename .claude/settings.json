@@ -26,7 +26,9 @@
       "Bash(aws *)",
       "Bash(git push*)",
       "Bash(git reset --hard*)",
-      "Bash(git clean *)"
+      "Bash(git clean *)",
+      "Bash(gh issue delete *)",
+      "Bash(gh issue transfer *)"
     ]
   },
   "hooks": {

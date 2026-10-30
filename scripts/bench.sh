@@ -32,7 +32,7 @@ case "${1:-bench}" in
     same_as_deployed || warn "HEAD とデプロイ済み($(deployed_rev))で docs/ 以外が違います。意図どおりですか？"
     if [ -z "${BENCH_CMD:-}" ]; then
       prebench
-      info "BENCH_CMD が空です。ポータルからベンチを実行し、終わったら make analyze と make score S=<点数>"
+      info "BENCH_CMD が空です。ポータルからベンチを実行し、make portal WATCH=1 E=\"<期待>\" で記録してから make analyze（取り出せなければ make score S=<点数>）。ポータルのベンチ中は deploy しない（ロックがかからない）"
       exit 0
     fi
     prebench

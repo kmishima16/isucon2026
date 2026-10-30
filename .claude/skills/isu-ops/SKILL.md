@@ -46,9 +46,11 @@ docs/flow/first-time.md の手順 3〜6 を回す：`make setup` → `make pull-
 
 ### 6. 実装して試す
 
-1. 実装し、`prefix: 何を変えたか` の 1 コミットにする。issue に当たる施策なら、末尾に `(#N)` を付ける。調査役が下ごしらえしたブランチは、`git merge --ff-only <ブランチ>` で取り込む。早送りできなければ、調査役に rebase し直してもらう。
+1. 実装し、`prefix: 何を変えたか` の 1 コミットにする。issue に当たる施策なら、末尾に `(#N)` を付ける。調査役が下ごしらえした施策は、伝えられたコミットの SHA を `git cherry-pick <sha>` で main に載せる（main は記録のコミットで進むので、早送りはできないことが多い）。衝突したら、調査役に main の最新で作り直してもらう。
 2. `make deploy` を実行する。応答を作る処理（クエリ・テンプレート・キャッシュ）を変えた施策なら、`make compare` もする。nginx や MySQL の設定だけの施策では行わない。基準（`make snapshot`）は、意図した違いが出たときだけ取り直す。
-3. `make bench E="<期待>"` を裏で回す（Bash の run_in_background）。deploy はロックで止まるので、ベンチと重ならない。
+3. ベンチを回す。
+   - BENCH_CMD でベンチできる練習では、`make bench E="<期待>"` を裏で回す（Bash の run_in_background）。このときは deploy がロックで止まるので、ベンチと重ならない。
+   - BENCH_CMD が空の本番では、`make prebench` の後、ポータルのベンチを人間に頼む。`make portal WATCH=1 E="<期待>"` で結果を待って記録する。ポータルのベンチにはロックがかからないので、ポータルのベンチが終わるまで deploy しない。
 4. ベンチの間に、reviewer サブエージェントに diff（`git show <sha>`）と施策の狙いを渡す。並行して、次の候補を用意する。
 5. ベンチが終わったら `make analyze` を実行する。
 
@@ -69,6 +71,7 @@ docs/flow/first-time.md の手順 3〜6 を回す：`make setup` → `make pull-
 - ベンチが fail した。次のベンチは回さず、原因を見るか戻す。
 - 取り返しのつきにくい変更に当たった（CLAUDE.md の守ること 6）。
 - 選ばれた分が尽きた（4 のゲート）。
+- ポータルのベンチを人間に頼むとき（本番）。頼んだら、`make portal WATCH=1` で結果を待つ間に、reviewer と次の候補を進める。
 
 gh が失敗したら（認証切れ・通信の失敗）、人間に伝えて施策は続ける。issue の操作は後に回す。
 
