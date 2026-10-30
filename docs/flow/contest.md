@@ -9,6 +9,7 @@
 - GitHub に private リポジトリを作り（人間）、3 つのセッションを同時に開く。操作役に `/isu-ops`、調査役に `/isu-research`、検証役に `/isu-local` を打つ。台に ssh できるようになったら、操作役がアプリを取り込む前に開く。会話の fork ではなく、新しいセッションで開く（first-time.md）。
 - 操作役は、isu-ops の「立ち上げ」を回す。初期データは、アプリを取り込んだ直後（deploy の前）に `make local-seed` で手元に退避する（中身は mysqldump）。最初の 3 つの施策は、コミットを分けたうえで、ポータルのベンチは 1 回だけにする（人間を呼ぶ回数を減らす）。
 - 人間は、マニュアルの採点の節とレギュレーションの要点を、自分で読む。
+- 練習のリポジトリの pprotein が動いていれば、先にそのリポジトリで `make pp-down` する。`make pp-up` は、:9000 で応答するものを自分のものとみなす（docs/kit/pprotein.md）。
 - DB を別の台に分けるとき：MySQL の bind-address、ユーザーの接続元ホスト（'%'）、アプリの接続先を private IP にする。
 - 台の役割を分けたら：止める台では、そのサービスを `systemctl disable --now` する（`SETUP_CMD` に書く。deploy は disable のサービスを起こさない）。nginx を止めた台が `APP_HOSTS` にいれば、`HEALTH_URL` をアプリのポートに向ける（docs/kit/deploy.md）。
 
