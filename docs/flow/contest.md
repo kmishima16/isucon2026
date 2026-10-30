@@ -7,6 +7,7 @@
 - 最初の 1 回（docs/flow/first-time.md）と同じ流れで、開始直後に新しいリポジトリを作る。違うのは手順 2 と 3 だけにする。make up は使わず、ポータルの 3 台を ~/.ssh/config に書いてから `make setup`。
 - isu.env を書き換える：`ENV=""`、`HOSTS` を ~/.ssh/config に書いた 3 台の名前に、アプリの場所・サービス名・DB の接続、`BENCH_CMD=""`（ベンチはポータルから）、`PORTAL_RESULT_URL`（docs/kit/portal.md）。
 - DB を別の台に分けるとき：MySQL の bind-address、ユーザーの接続元ホスト（'%'）、アプリの接続先を private IP にする。
+- 台の役割を分けたら：止める台では、そのサービスを `systemctl disable --now` する（`SETUP_CMD` に書く。deploy は disable のサービスを起こさない）。nginx を止めた台が `APP_HOSTS` にいれば、`HEALTH_URL` をアプリのポートに向ける（docs/kit/deploy.md）。
 - GitHub に private リポジトリを作り（人間）、操作役のセッションで `/isu-ops`、調査役のセッションで `/isu-research` を打つ。
 
 ## 時間割（10:00〜18:00）

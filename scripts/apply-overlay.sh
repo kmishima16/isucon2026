@@ -41,20 +41,23 @@ touched() { printf '%s\n' "${changed[@]}" | grep -q "^$1"; }
 if touched etc/systemd/; then systemctl daemon-reload; fi
 if touched etc/sysctl; then sysctl --system >/dev/null || echo "  [warn] sysctl --system でエラー"; fi
 
-# 複数台では、役割に合わせて nginx や MySQL を止めてある台がある。止めてあるサービスは起こさない（設定の確かめはする）
+# 複数台では、役割に合わせて nginx や MySQL を止めて disable にした台がある。disable の台では起こさない（nginx -t だけは行う）。
+# enable のまま落ちているものは起こす。落ちた設定を直したコミットや、戻すための deploy で復旧できるように
 if touched etc/nginx/ && command -v nginx >/dev/null; then
   if ! nginx -t 2>&1; then restore; nginx -t >/dev/null 2>&1 && echo "  nginx は元の設定で無事です"; exit 3; fi
-  if ! systemctl is-active -q nginx; then
-    echo "  nginx は止まっているので reload しない"
-  elif ! systemctl reload nginx; then
-    restore; systemctl reload nginx && echo "  nginx は元の設定で reload しました"; exit 3
+  if ! systemctl list-unit-files --type=service --no-legend nginx.service | grep -q .; then
+    echo "  [warn] nginx.service がありません。別の名前で動かしているなら、その unit を手で reload してください"
+  elif ! systemctl is-enabled -q nginx; then
+    echo "  nginx は disable なので reload しない（役割で止めた台）"
+  elif ! systemctl reload-or-restart nginx; then
+    restore; systemctl reload-or-restart nginx && echo "  nginx は元の設定で動いています"; exit 3
   fi
 fi
 
 if touched etc/mysql/; then
   for db in mysql mariadb; do
     systemctl list-unit-files --type=service --no-legend "$db.service" | grep -q . || continue
-    if ! systemctl is-active -q "$db"; then echo "  $db は止まっているので restart しない"; break; fi
+    if ! systemctl is-enabled -q "$db"; then echo "  $db は disable なので restart しない（役割で止めた台）"; break; fi
     if ! systemctl restart "$db"; then
       journalctl -u "$db" -n 15 --no-pager || true
       restore; systemctl restart "$db" && echo "  $db は元の設定で起動しました"
