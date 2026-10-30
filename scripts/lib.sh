@@ -48,6 +48,14 @@ rev() {
   [ -n "$(git status --porcelain 2>/dev/null)" ] && r="${r}+dirty"
   echo "$r"
 }
+# デプロイ済みのコミット（logs/deployed の 1 列目）。まだ deploy していなければ ?
+deployed_rev() { cut -d' ' -f1 "$LOG_DIR/deployed" 2>/dev/null || echo '?'; }
+# HEAD がデプロイ済みと同じか。docs/ だけの差は同じとみなす（docs の取り込みや記録のコミットでは、サーバーに配るものが変わらないため）
+same_as_deployed() {
+  local d
+  d="$(deployed_rev)"
+  [ "$d" != '?' ] && git diff --quiet "$d" HEAD -- . ':(exclude)docs'
+}
 
 # --- deploy / bench を直列化するロック（mkdir 方式で macOS でも動く） ---
 LOCK_DIR="$ROOT/.lock"

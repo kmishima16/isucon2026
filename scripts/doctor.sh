@@ -10,9 +10,9 @@ info "手元"
 for c in git rsync ssh curl; do command -v $c >/dev/null && ok "$c" || bad "$c がありません"; done
 if [ -n "$ENV" ]; then command -v isuenv >/dev/null && ok "isuenv" || bad "isuenv がありません"; fi
 [ -d .lock ] && bad "ロックが残っています: $(cat .lock/owner 2>/dev/null)（実行中でなければ rm -rf .lock）"
-d="$(cut -d' ' -f1 logs/deployed 2>/dev/null)"; h="$(git rev-parse --short HEAD 2>/dev/null)"
+h="$(git rev-parse --short HEAD 2>/dev/null)"; d="$(deployed_rev)"; [ "$d" = '?' ] && d=なし
 [ -z "$(git status --porcelain)" ] && ok "作業ツリーはクリーン" || printf '  --  未コミットの変更あり（deploy 前に commit）\n'
-[ "$d" = "$h" ] && ok "デプロイ済み = HEAD ($h)" || printf '  --  デプロイ済み %s / HEAD %s\n' "${d:-なし}" "$h"
+if same_as_deployed; then ok "デプロイ済み = HEAD（docs/ だけの差は無視） ($h)"; else printf '  --  デプロイ済み %s / HEAD %s（docs/ 以外が違う）\n' "$d" "$h"; fi
 
 if [ -n "$ENV" ] && command -v isuenv >/dev/null; then
   info "isuenv 環境"

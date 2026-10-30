@@ -5,12 +5,11 @@
 # make score S=<点数> [M=メモ] [E=期待] : 手で記録（本番用）
 source "$(dirname "$0")/lib.sh"
 
-deployed() { cut -d' ' -f1 "$LOG_DIR/deployed" 2>/dev/null || echo '?'; }
 record() {   # pass score memo expect
   local f=docs/scores.tsv
   [ -f $f ] || printf 'time\trev\tpass\tscore\tmemo\texpect\n' > $f
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed)" 2>/dev/null || true)}" "${4:-}" >> $f
-  info "記録: rev=$(deployed) pass=$1 score=$2${4:+  期待: $4}"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed_rev)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed_rev)" 2>/dev/null || true)}" "${4:-}" >> $f
+  info "記録: rev=$(deployed_rev) pass=$1 score=$2${4:+  期待: $4}"
 }
 prebench() {
   rsh "$NGINX_HOST" "sudo truncate -s0 $NGINX_LOG 2>/dev/null || true"
@@ -26,7 +25,7 @@ case "${1:-bench}" in
   score) record "${PASS:-true}" "${S:?S=<点数> を指定}" "${M:-}" "${E:-}" ;;
   bench)
     acquire_lock "bench"
-    [ "$(deployed)" = "$(git rev-parse --short HEAD)" ] || warn "HEAD とデプロイ済み($(deployed))が違います。意図どおりですか？"
+    same_as_deployed || warn "HEAD とデプロイ済み($(deployed_rev))で docs/ 以外が違います。意図どおりですか？"
     if [ -z "${BENCH_CMD:-}" ]; then
       prebench
       info "BENCH_CMD が空です。ポータルからベンチを実行し、終わったら make analyze と make score S=<点数>"
