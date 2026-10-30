@@ -6,19 +6,32 @@
 # 構成は local/compose.yml。部分ダンプなど取ってきたものは local/data/（git に入れない）。
 source "$(dirname "$0")/lib.sh"
 L="$ROOT/local"; D="$L/data"
-COMPOSE=(docker compose -f "$L/compose.yml")
+# 練習と本番のリポジトリで同じ名前を使うと、別の問題の環境（DB のボリュームごと）を作り直してしまうので、リポジトリごとに分ける。
+# worktree（検証役）でも main と同じ名前になるよう、git の共通のディレクトリからリポジトリ名を取る
+PROJECT="isu-$(basename "$(dirname "$(cd "$(git rev-parse --git-common-dir)" && pwd -P)")" | tr 'A-Z' 'a-z' | sed 's/[^a-z0-9_-]/-/g')"
+COMPOSE=(docker compose -p "$PROJECT" -f "$L/compose.yml")
 export LOCAL_PORT
 
 seed() {
+  # サーバーに ssh して全件をダンプするので、検証役の worktree からは動かさない
+  refuse_in_worktree local-seed
   mkdir -p "$D/initdb" "$L/public"
-  info "[$DB_HOST] 部分ダンプ: $LOCAL_SEED"
-  local spec t w
+  info "[$DB_HOST] ダンプ: $LOCAL_SEED"
+  local spec t w tmp="$D/initdb/.00_seed.sql.gz.tmp"
+  rm -f "$tmp"
+  # 大きな初期データでも転送を短くするため、サーバーの側で圧縮して送る（gzip の連結はそのまま読める）。
+  # 書き終えてから置き換えるのは、検証役が書きかけのダンプを写さないため
   for spec in $LOCAL_SEED; do
     t="${spec%%:*}"; w=""; [[ "$spec" == *:* ]] && w="${spec#*:}"
-    rsh "$DB_HOST" "sudo mysqldump --no-tablespaces --single-transaction --skip-comments ${w:+--where=$(printf %q "$w")} $LOCAL_DB_NAME $t" \
-      || die "$t のダンプに失敗しました"
-  done | gzip > "$D/initdb/00_seed.sql.gz"
+    rsh "$DB_HOST" "set -o pipefail; sudo mysqldump --no-tablespaces --single-transaction --skip-comments ${w:+--where=$(printf %q "$w")} $LOCAL_DB_NAME $t | gzip" \
+      || { rm -f "$tmp"; die "$t のダンプに失敗しました"; }
+  done > "$tmp"
+  mv "$tmp" "$D/initdb/00_seed.sql.gz"
   info "保存: local/data/initdb/00_seed.sql.gz（$(du -h "$D/initdb/00_seed.sql.gz" | cut -f1)）"
+  if [ -z "${LOCAL_PUBLIC_REMOTE:-}" ]; then
+    info "LOCAL_PUBLIC_REMOTE が空なので、静的ファイルは取りません"
+    return
+  fi
   rsync -rlt --delete --exclude /image -e "$RSYNC_E" "${APP_HOSTS%% *}:$LOCAL_PUBLIC_REMOTE/" "$L/public/"
   info "静的ファイル: local/public/（変わっていれば commit）"
 }

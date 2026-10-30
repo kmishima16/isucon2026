@@ -5,7 +5,10 @@
 ## 役割
 
 - local/compose.yml で、MySQL・memcached・アプリ（作業ツリーのコードからビルド）・nginx を動かす。
-- `make local-seed` は、サーバーから部分ダンプ（`LOCAL_SEED`）と静的ファイルを取る。部分ダンプは local/data/（git に入れない）、静的ファイルは local/public/（commit する）に置く。
+- `make local-seed` は、サーバーから部分ダンプ（`LOCAL_SEED`）と静的ファイルを取る。部分ダンプは local/data/（git に入れない）、静的ファイルは local/public/（commit する）に置く。ダンプはサーバーの側で圧縮して送り、書き終えてから置き換える（途中で失敗したら残さない）。`LOCAL_PUBLIC_REMOTE` が空なら、静的ファイルは取らない。サーバーに ssh するので、worktree では断る。
+- 手元の環境の名前（compose のプロジェクト名）は、`isu-<リポジトリ名>` にする。練習と本番のリポジトリで、環境と DB のボリュームが混ざらない。ポートが重なるときは、isu.env の `LOCAL_PORT` を変える。
+- MySQL の健康診断には、初期データを入れる間の猶予（`start_period: 30m`）がある。大きなダンプでも、取り込みの途中で失敗扱いにしない。
+- 退避されるのは `LOCAL_DB_NAME` の 1 つの DB だけ。SQLite やファイルに持つデータは入らない。
 - `make local-up` は、部分ダンプのあとに sql/*.sql を流す（インデックスの重複は適用済みとみなす）。nginx は、サーバーと同じサイト設定を、置き場所とアプリの宛先だけ差し替えて使う。
 - `make local-down` は、止めて DB を消す。次の local-up で作り直す。
 - compose.yml とアプリの環境変数名は、問題ごとに書き直す（private-isu の例が入っている）。新しい問題では、検証役（`/isu-local`）が書き直す。取り込んだコードに compose があれば、それを使う。
@@ -23,7 +26,7 @@
 ## 確かめ方
 
 - 最後に「起動しました: http://localhost:8080/」が出る。
-- 起動に失敗したら、表示されるアプリのログと、`docker compose -f local/compose.yml logs mysql` を見る。
+- 起動に失敗したら、表示されるアプリのログと、`docker compose -p isu-<リポジトリ名> -f local/compose.yml logs mysql` を見る。`docker ps` で、ほかのリポジトリの環境が同じポートを使っていないかも見る。
 
 ## 更新のしかた
 

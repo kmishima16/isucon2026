@@ -14,6 +14,8 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
       interval: 2s
       retries: 90
+      # 初期データの取り込みの間は、公式のイメージが TCP を閉じた仮のサーバーで動き、ping が通らない。大きなダンプでも unhealthy にしない
+      start_period: 30m
   memcached:
     image: memcached:1.6.32
   app:
