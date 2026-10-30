@@ -10,6 +10,9 @@ record() {   # pass score memo expect
   [ -f $f ] || printf 'time\trev\tpass\tscore\tmemo\texpect\n' > $f
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed_rev)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed_rev)" 2>/dev/null || true)}" "${4:-}" >> $f
   info "記録: rev=$(deployed_rev) pass=$1 score=$2${4:+  期待: $4}"
+  # 未コミットのまま残ると次の deploy が止まるので、記録だけをその場でコミットする（ほかの変更は巻き込まない）
+  git add $f
+  git commit -q -m "chore: ベンチ結果を記録する" -- $f || die "$f をコミットできません"
 }
 prebench() {
   rsh "$NGINX_HOST" "sudo truncate -s0 $NGINX_LOG 2>/dev/null || true"
