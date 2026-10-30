@@ -23,7 +23,7 @@ source "$ROOT/isu.env"
 : "${PORTAL_JQ_SCORE:=.score}"
 : "${PORTAL_JQ_MESSAGES:=.messages}"
 
-LOG_DIR="$ROOT/logs"; mkdir -p "$LOG_DIR" "$ROOT/notes"
+LOG_DIR="$ROOT/logs"; mkdir -p "$LOG_DIR"
 
 info() { printf '\033[36m==> %s\033[0m\n' "$*" >&2; }
 warn() { printf '\033[33m[warn] %s\033[0m\n' "$*" >&2; }

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ポータルのベンチ結果を取り出して表示し、まだ記録していなければ notes/scores.tsv に記録する（本番用の骨組み）。
+# ポータルのベンチ結果を取り出して表示し、まだ記録していなければ docs/scores.tsv に記録する（本番用の骨組み）。
 #   make portal [E=期待した動き]          : いちばん新しい結果を 1 回取り出す
 #   make portal WATCH=1 [E=期待した動き]  : 新しい結果が出るまで 15 秒ごとに見に行く（ポータルでベンチを始めた直後に）
 # 取り出し方は isu.env の PORTAL_RESULT_URL（Cookie 付きで GET）か PORTAL_RESULT_CMD（JSON を出すコマンド）。

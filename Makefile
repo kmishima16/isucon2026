@@ -46,7 +46,7 @@ score: ## スコアを手で記録  make score S=12345 [M=メモ] [E=期待し�
 portal: ## ポータルの結果を取り出して記録（本番用）  [WATCH=1] [E=期待した動き]
 	bash scripts/portal.sh
 best: ## 記録したスコアの上位（良かったコミットを探す）
-	@awk -F'\t' 'NR>1' notes/scores.tsv | sort -t$$'\t' -k4,4nr | head -n $${N:-10} | awk -F'\t' '{printf "%-16s %-10s %-6s %10s  %s%s\n",$$1,$$2,$$3,$$4,$$5,($$6!="" ? "  （期待: "$$6"）" : "")}'
+	@awk -F'\t' 'NR>1' docs/scores.tsv | sort -t$$'\t' -k4,4nr | head -n $${N:-10} | awk -F'\t' '{printf "%-16s %-10s %-6s %10s  %s%s\n",$$1,$$2,$$3,$$4,$$5,($$6!="" ? "  （期待: "$$6"）" : "")}'
 reboot-test: ## 全台を再起動して、何もせずに復帰するか確認
 	bash scripts/reboot-test.sh
 snapshot: ## 回帰チェックの基準として主なページの応答を保存  [NAME=base]

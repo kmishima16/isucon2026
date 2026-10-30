@@ -38,7 +38,7 @@
 ### results/
 
 - 対応する design（無ければ「なし」）と、deploy したコミット。
-- スコアの前後と pass / fail。`notes/scores.tsv` の行を引く。
+- スコアの前後と pass / fail。`docs/scores.tsv` の行を引く。
 - 計測の変化：ボトルネックがどこからどこに移ったか。
 - 分かったこと、効かなかったこと、次の候補。
 

@@ -19,7 +19,7 @@ main のチェックアウトは、チューニング（commit → make deploy �
 - 規則は worktree の `docs/README.md` に従う。ディレクトリ・ファイル名・番号・各文書に書くことが決まっている。
 - 番号は、書く直前にそのディレクトリの最大の番号を見て決める。results は対応する design と同じ番号とスラッグにする。
 - 既存の文書は書き換えない。新しい文書を足すだけにする。
-- 事実は、コード・`notes/scores.tsv`・`logs/`・`git log` で確かめてから書く。確かめられないことは推測と書く。
+- 事実は、コード・`docs/scores.tsv`・`logs/`・`git log` で確かめてから書く。確かめられないことは推測と書く。
 - サーバーへの ssh は読み取りだけにする。`make deploy` / `make bench` / `make analyze` など、サーバーやログを変えるコマンドは実行しない。
 
 ## 終わり方

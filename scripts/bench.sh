@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
 # make prebench : 計測ログを空にする（本番でポータルからベンチを回す前にも使う）
-# make bench    : prebench → BENCH_CMD → スコアを notes/scores.tsv に記録   （PROFILE=1 で pprof と fgprof も）
+# make bench    : prebench → BENCH_CMD → スコアを docs/scores.tsv に記録   （PROFILE=1 で pprof と fgprof も）
 #                 E="期待した動き" で、施策の狙い（例: E="GET / の DB 待ちが消える"）を一緒に残す。M=メモ で memo を上書き
 # make score S=<点数> [M=メモ] [E=期待] : 手で記録（本番用）
 source "$(dirname "$0")/lib.sh"
 
 deployed() { cut -d' ' -f1 "$LOG_DIR/deployed" 2>/dev/null || echo '?'; }
 record() {   # pass score memo expect
-  local f=notes/scores.tsv
+  local f=docs/scores.tsv
   [ -f $f ] || printf 'time\trev\tpass\tscore\tmemo\texpect\n' > $f
-  # 列を足す前に作った scores.tsv は、見出しにだけ expect を足す（既存の行は空のまま）
-  if [ "$(head -1 $f | awk -F'\t' '{print NF}')" = 5 ]; then
-    { printf '%s\texpect\n' "$(head -1 $f)"; tail -n +2 $f; } > $f.tmp && mv $f.tmp $f
-  fi
   printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed)" 2>/dev/null || true)}" "${4:-}" >> $f
   info "記録: rev=$(deployed) pass=$1 score=$2${4:+  期待: $4}"
 }

@@ -11,7 +11,8 @@ Makefile       操作の入口（make help）
 server/all/    全台に置く設定ファイル（絶対パスのミラー：server/all/etc/nginx/... → /etc/nginx/...）
 server/<host>/ その台だけに置く設定ファイル
 sql/           DB のスキーマ変更（deploy のたびに適用）
-notes/         scores.tsv（自動記録）、memo.md（自由）
+notes/         memo.md（自由。docs に統合する予定）
+docs/scores.tsv ベンチ結果の記録（自動）
 ```
 
 ## 最初の1回：リポジトリを作ってファイルを取り込む
