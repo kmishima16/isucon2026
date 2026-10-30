@@ -8,6 +8,8 @@ d="$FIX/m"; mkdir -p "$d"
 {
   echo 'procs -----------memory---------- ---swap-- -----io---- -system-- ------cpu----- -----timestamp-----'
   echo ' r  b   swpd   free   buff  cache   si   so    bi    bo   in   cs us sy id wa st                 UTC'
+  # 1 行目は起動からの平均なので、アイドル中でも id が低いことがある
+  echo ' 1  0      0 100000   1000 500000    0    0     0     0  300  400 20 11 69  0  0 2026-10-30 09:59:59'
   for _ in 1 2 3; do echo ' 0  0      0 100000   1000 500000    0    0     0     0  100  200  1  0 99  0  0 2026-10-30 10:00:00'; done
   for _ in 1 2 3; do echo ' 4  0      0 100000   1000 500000    0    0     0     0  900  999 60 20 10 10  0 2026-10-30 10:00:10'; done
   for _ in 1 2; do echo ' 0  0      0 100000   1000 500000    0    0     0     0  100  200  1  0 99  0  0 2026-10-30 10:00:20'; done
@@ -24,6 +26,30 @@ d="$FIX/m"; mkdir -p "$d"
 out="$(bash scripts/sysstat.sh summarize "$d" 2>&1 || true)"
 contains "vmstat はベンチ中の 3 秒で平均する" "vmstat   3秒  us 60%" "$out"
 contains "pidstat は CPU を使っていた区間だけで平均する" "50.0  app" "$out"
+{
+  printf '# Time        UID       PID    %%usr %%system  %%guest   %%wait    %%CPU   CPU  Command\n'
+  printf ' 1730282400  1000      1234    2.00    1.00    0.00    0.00    3.00     0  app\n\n'
+  printf '# Time        UID       PID    %%usr %%system  %%guest   %%wait    %%CPU   CPU  Command\n'
+  printf ' 1730282401  1000      1234    2.00    1.00    0.00    0.00    3.00     0  app\n'
+} > "$d/pidstat.txt"
+out="$(bash scripts/sysstat.sh summarize "$d" 2>&1 || true)"
+contains "CPU の軽い台でも、全区間で平均して行を出す" "3.0  app" "$out"
+finish_fixture
+
+echo "pprotein の収集の長さは、collect のたびに今の秒数で登録し直す"
+make_fixture
+mkdir -p stub
+# curl の代役：引数と、送った本文（--data-binary @-）を残す
+cat > stub/curl <<'EOF'
+#!/usr/bin/env bash
+echo "curl $*" >> "$SENT"
+case "$*" in *"--data-binary"*) cat >> "$SENT"; echo >> "$SENT" ;; esac
+exit 0
+EOF
+chmod +x stub/curl
+PATH="$FIX/stub:$PATH" SENT="$FIX/sent" PPROTEIN_SECONDS=240 bash scripts/pprotein.sh collect >/dev/null 2>&1 || true
+sleep 1
+contains "収集先を Duration 240 で登録し直す" '"Duration":240' "$(cat "$FIX/sent" 2>/dev/null)"
 finish_fixture
 
 echo "ポータルのベンチ（BENCH_CMD が空）では計測の窓を延ばす"

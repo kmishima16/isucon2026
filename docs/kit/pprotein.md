@@ -13,7 +13,7 @@
 
 ## いつ使うか
 
-- 画面で見たいとき：bench の前に `make pp-up`。以降は prebench が収集を始める（`make pp-collect` で手でも始められる）。
+- 画面で見たいとき：bench の前に `make pp-up`。以降は prebench が収集を始める（`make pp-collect` で手でも始められる）。収集の長さは `PPROTEIN_SECONDS`（ポータルのベンチでは `PORTAL_MEASURE_SECONDS`）で、収集のたびに収集先を登録し直して合わせる。
 - 本番の最終盤：`make pp-agent-off`（再起動しても起きない）。戻すときは `make pp-agent-on`。
 
 ## 動かし方

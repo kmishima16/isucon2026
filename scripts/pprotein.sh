@@ -113,6 +113,8 @@ collect() {
     warn "pprotein が起動していないので、収集は省きます（使うなら make pp-up）"
     return 0
   fi
+  # 収集の長さは、登録した収集先の Duration で決まる。prebench が窓を延ばしたとき（ポータルのベンチ）にも効くよう、毎回登録し直す
+  targets_json | curl -fsS -X POST --data-binary @- "$URL/api/group/targets" >/dev/null || die "収集先を登録し直せません"
   nohup curl -fsS --max-time $((PPROTEIN_SECONDS + 120)) "$URL/api/group/collect" >"$RUN/collect.log" 2>&1 &
   info "pprotein: ${PPROTEIN_SECONDS} 秒の収集を始めました。終わると $URL と pprotein/data/ に出ます"
 }

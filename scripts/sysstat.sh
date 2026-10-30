@@ -27,20 +27,23 @@ EOF
 summarize() {   # 回収したディレクトリ
   local d="$1"
   if [ -s "$d/vmstat.txt" ]; then
-    # 見出し行から列の位置を拾う（vmstat の版で列が増減するため）。id が 90% 未満の最初と最後の秒の間をベンチ中とみなす（無ければ全部）
-    awk '/^ *r +b/{for(i=1;i<=NF;i++)c[$i]=i; next} c["us"] && $1 ~ /^[0-9]+$/ {m++; us[m]=$c["us"]; sy[m]=$c["sy"]; id[m]=$c["id"]; wa[m]=$c["wa"]; st[m]=$c["st"]; r[m]=$c["r"]; if($c["id"]<90){if(!a)a=m; z=m}}
+    # 見出し行から列の位置を拾う（vmstat の版で列が増減するため）。id が 90% 未満の最初と最後の秒の間をベンチ中とみなす（無ければ全部）。
+    # データの 1 行目は起動からの平均で、アイドル中でも id が低いことがあるので捨てる
+    awk '/^ *r +b/{for(i=1;i<=NF;i++)c[$i]=i; next} c["us"] && $1 ~ /^[0-9]+$/ && !first++ {next} c["us"] && $1 ~ /^[0-9]+$/ {m++; us[m]=$c["us"]; sy[m]=$c["sy"]; id[m]=$c["id"]; wa[m]=$c["wa"]; st[m]=$c["st"]; r[m]=$c["r"]; if($c["id"]<90){if(!a)a=m; z=m}}
       END{if(!m) exit; if(!a){a=1; z=m}; for(i=a;i<=z;i++){n++; U+=us[i]; S+=sy[i]; I+=id[i]; W+=wa[i]; T+=st[i]; R+=r[i]; if(r[i]>rm)rm=r[i]}
         printf "  vmstat   %d秒  us %.0f%%  sy %.0f%%  id %.0f%%  wa %.0f%%  st %.0f%%  実行待ち r 平均 %.1f / 最大 %d\n", n, U/n, S/n, I/n, W/n, T/n, R/n, rm}' "$d/vmstat.txt"
   fi
   if [ -s "$d/pidstat.txt" ]; then
     local p
-    # 区間（見出しから次の見出しまで）の %CPU の合計が 10 未満の区間は、ベンチの外とみなして数えない。1 行目に数えた区間の数を出す
-    p="$(awk 'function flush(){ if(tot>=10){busy++; for(k in cur) s[k]+=cur[k]} delete cur; tot=0 }
-      /^#/{flush(); for(i=2;i<=NF;i++){if($i=="%CPU")cpu=i-1; if($i=="Command")cmd=i-1}; next}
+    # 区間（見出しから次の見出しまで）の %CPU の合計が 10 未満の区間は、ベンチの外とみなして数えない。
+    # CPU の軽い台で、そういう区間が 1 つも無ければ、全区間で平均する。1 行目に、どちらで数えたかと区間の数を出す
+    p="$(awk 'function flush(){ if(open){n++; for(k in cur) a[k]+=cur[k]; if(tot>=10){busy++; for(k in cur) s[k]+=cur[k]}} delete cur; tot=0 }
+      /^#/{flush(); open=1; for(i=2;i<=NF;i++){if($i=="%CPU")cpu=i-1; if($i=="Command")cmd=i-1}; next}
       cpu && NF>=cmd {cur[$cmd]+=$cpu; tot+=$cpu}
-      END{flush(); if(!busy) exit; print busy; for(k in s) printf "%7.1f  %s\n", s[k]/busy, k}' "$d/pidstat.txt")"
+      END{flush(); if(busy){print "ベンチ中の " busy " 区間"; for(k in s) printf "%7.1f  %s\n", s[k]/busy, k}
+        else if(n){print "全 " n " 区間。ベンチ中と分かる区間なし"; for(k in a) printf "%7.1f  %s\n", a[k]/n, k}}' "$d/pidstat.txt")"
     if [ -n "$p" ]; then
-      echo "  pidstat  コマンドごとの平均 %CPU（1 コア = 100%、ベンチ中の $(head -1 <<<"$p") 区間）"
+      echo "  pidstat  コマンドごとの平均 %CPU（1 コア = 100%、$(head -1 <<<"$p")）"
       tail -n +2 <<<"$p" | sort -rn | head -n 8 | sed 's/^/    /'
     fi
   fi
