@@ -35,7 +35,8 @@ check() {
   info "ポータルの結果 $id: pass=$pass score=${score}（logs/$T-portal.json）"
   jq -r "$PORTAL_JQ_MESSAGES // [] | .[]?" <<<"$json" | head -n 10 | sed 's/^/  /'
   [[ "$score" =~ ^-?[0-9]+$ ]] || die "スコアを数値として読めません: ${score}（PORTAL_JQ_SCORE を確認）"
-  PASS="$pass" S="$score" M="${M:-portal $id}" bash "$ROOT/scripts/bench.sh" score
+  # check は && や || の中から呼ぶので set -e が効かない。記録に失敗したら、ここで止めて ID を記録済みにしない
+  PASS="$pass" S="$score" M="${M:-portal $id}" bash "$ROOT/scripts/bench.sh" score || die "記録できませんでした（上のメッセージ）"
   echo "$id" >> "$SEEN"
 }
 

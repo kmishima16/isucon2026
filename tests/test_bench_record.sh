@@ -25,4 +25,15 @@ out="$(S=2 bash scripts/bench.sh score 2>&1)"
 contains "ベンチ済みの design があるとき" "results を書かせる（docs/design/001_a.md）" "$out"
 finish_fixture
 
+echo "記録のコミットに失敗したとき"
+make_fixture
+printf '#!/bin/sh\nexit 1\n' > .git/hooks/pre-commit
+chmod +x .git/hooks/pre-commit
+if S=1 bash scripts/bench.sh score >/dev/null 2>&1; then ng "score は失敗で終わる"; else ok "score は失敗で終わる"; fi
+printf '{"pass":true,"score":5,"messages":[]}\n' > portal.json
+printf "PORTAL_RESULT_URL=''\nPORTAL_RESULT_CMD='cat portal.json'\n" >> isu.env
+if bash scripts/portal.sh >/dev/null 2>&1; then ng "portal は失敗で終わる"; else ok "portal は失敗で終わる"; fi
+check "portal は記録済みにしない" "" "$(cat logs/portal-seen 2>/dev/null)"
+finish_fixture
+
 report
