@@ -1,0 +1,34 @@
+# bench
+
+ベンチの実行と、結果の記録（docs/scores.tsv）を受け持ちます。
+
+## 役割
+
+- `make prebench` は、計測ログ（アクセスログ・スローログ）を空にし、vmstat・pidstat・memcached の計測（docs/kit/analyze.md）と pprotein の収集を始める。
+- `make bench` は、prebench → isu.env の `BENCH_CMD` でベンチ → 結果を docs/scores.tsv に記録する。`E="期待した動き"` で施策の狙いを一緒に残す。
+- `make score S=<点数>` は、ポータルのベンチなどを手で記録する。
+- `make best` は、記録の上位を出す（良かったコミットを探す）。
+- 記録したら、docs/scores.tsv だけをその場でコミットする（`chore: ベンチ結果を記録する`）。未コミットのまま次の deploy が止まるのを防ぐため。ほかの変更は巻き込まない。
+- 記録の後に、次の一手を出す。results の無い design がベンチ済みになっていれば「results を書かせる」と出す。
+- HEAD とデプロイ済みで docs/ 以外が違えば、警告する。
+
+## いつ使うか
+
+- deploy して compare を確かめた後（CLAUDE.md の出来事ごとの手順 5）。前面で実行する（裏で実行すると、hooks の案内が出る時点が決まらないため）。
+- 本番：`make prebench` → ポータルでベンチ → `make portal`（docs/kit/portal.md）か `make score`。
+
+## 動かし方
+
+- scripts/bench.sh の冒頭のコメント、`make help`。`PROFILE=1` で pprof・fgprof も取る（docs/kit/analyze.md）。
+
+## 確かめ方
+
+- 最後に「記録: rev=... pass=... score=...」と次の一手が出る。`git log -1` が `chore: ベンチ結果を記録する` になっている。
+- スコアを読み取れなかったときは、logs/<時刻>-bench.txt を見て `make score S=<点数>`。
+- docs/scores.tsv の列は time・rev・pass・score・memo・expect。
+
+## 更新のしかた
+
+- ベンチのコマンド：isu.env の `BENCH_CMD`（本番では空にする）。
+- 結果の読み取り：scripts/bench.sh の `RESULT`・`PASS`・`SCORE`（`{"pass":...,"score":...}` の形を前提にしている）。
+- 直したら `make lint` と `make test`（tests/test_bench_record.sh）。
