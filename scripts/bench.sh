@@ -5,6 +5,17 @@
 # make score S=<点数> [M=メモ] [E=期待] : 手で記録（本番用）
 source "$(dirname "$0")/lib.sh"
 
+# 記録の後にやること。results の無い design がベンチ済みになっていれば、results を書かせる番（CLAUDE.md の出来事ごとの手順 5）
+next_step() {
+  local benched
+  benched="$(bash "$ROOT/scripts/docs.sh" pending | awk -F'\t' '$2 == "benched" { printf "%s ", $1 }')"
+  if [ -n "$benched" ]; then
+    info "次: make analyze の後、doc-writer に results を書かせる（${benched% }）"
+  else
+    info "次: 対応する design はありません（道具の確認のベンチなら results は不要）"
+  fi
+}
+
 record() {   # pass score memo expect
   local f=docs/scores.tsv
   [ -f $f ] || printf 'time\trev\tpass\tscore\tmemo\texpect\n' > $f
@@ -13,6 +24,7 @@ record() {   # pass score memo expect
   # 未コミットのまま残ると次の deploy が止まるので、記録だけをその場でコミットする（ほかの変更は巻き込まない）
   git add $f
   git commit -q -m "chore: ベンチ結果を記録する" -- $f || die "$f をコミットできません"
+  next_step
 }
 prebench() {
   rsh "$NGINX_HOST" "sudo truncate -s0 $NGINX_LOG 2>/dev/null || true"
