@@ -7,13 +7,18 @@
       "Bash(rsync *)",
       "Bash(isuenv list)",
       "Bash(isuenv bench *)",
-      "Bash(isuenv problems)"
+      "Bash(isuenv problems)",
+      "Bash(direnv exec . make *)"
     ],
     "deny": [
       "Bash(make up)",
       "Bash(make up *)",
       "Bash(make down)",
       "Bash(make down *)",
+      "Bash(direnv exec . make up)",
+      "Bash(direnv exec . make up *)",
+      "Bash(direnv exec . make down)",
+      "Bash(direnv exec . make down *)",
       "Bash(isuenv up *)",
       "Bash(isuenv down *)",
       "Bash(isuenv nuke*)",
