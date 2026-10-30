@@ -8,6 +8,7 @@ Claude Code の hooks で、記録と docs の状態を自動で読み込ませ�
   - session-start.sh：セッションの開始・再開・/clear・compact・fork のときに、ベストスコアの上位 5 件・最新の results の「次の候補」・docs の状態を読み込ませる。
   - after-bash.sh：make bench・score・portal の後に、ベンチ済みで results の無い design があれば、results を書かせるよう案内する。成功したかは、終了コードではなく記録で判断する。
   - before-stop.sh：作業を終える前に、main に入っていない docs と、ベンチ済みで results の無い design があれば、1 回だけ作業を続けさせる。裏で doc-writer が動いていれば何もしない。
+  - 判定はリポジトリ全体の状態で行い、裏の doc-writer はそのセッションの分しか見えない。施策を進めるセッションは 1 つにする前提で、ほかのセッションにも同じ案内が出ることがある（CLAUDE.md の「文書の扱い」）。
 - 通信はしない。各 hook の上限は 10 秒。入力の JSON は jq で読む（macOS に入っている）。
 
 ## いつ使うか

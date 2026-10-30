@@ -92,6 +92,7 @@ main のチェックアウトはチューニング（コミット → deploy →
 - doc-writer がコミットを返したら、Claude がすぐに `make docs-merge` で main に早送りで取り込む。GitHub への push は人間が行う。GitHub の main をローカルの main からしか進めないことで、pull と、ベンチ記録の SHA を変える rebase を避ける。
 - 生きた文書（README・CLAUDE.md・docs/README・docs/kit・docs/flow）は、道具や手順を変えたコミットで、変えたセッションが main に直接書く。
 - worktree からは `make deploy` / `make bench` を実行しない（deploy はそのチェックアウトの HEAD をサーバーに反映するため）。
+- 施策を進める（bench を回し、doc-writer を起動する）セッションは 1 つにする。hooks の取りこぼしの確認はリポジトリ全体の状態を見るので、ほかのセッションにも同じ案内が出ることがある。施策を進めていないセッションでは、results の案内に従って doc-writer を起動しない（`make docs-merge` の案内には従ってよい）。
 - `CLAUDE.md` の変更は、main に入るまで各セッションに効かない。`.claude/settings.json` の hooks は、通常はセッションの途中でも読み直される。
 
 ## 困ったら
