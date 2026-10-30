@@ -30,6 +30,7 @@ git add -A && git commit -m "chore: nginx の設定を取り込む"
 
 # 6. 何も変えていない状態で一周させる（ここで初期スコアが docs/scores.tsv に記録される）
 make deploy && make bench && make analyze
+make snapshot                 # 回帰チェックの基準（isu.env の SNAPSHOT_* を問題に合わせてから。docs/kit/snapshot.md）
 
 # 7. 持ち越しの issue の置き場として、GitHub に private リポジトリを作る（人間）
 gh repo create <名前> --private --source . --remote origin
@@ -46,7 +47,7 @@ gh repo create <名前> --private --source . --remote origin
 - ビルド成果物、vendor/ などの巨大ファイル、DB ダンプや画像データ、パスワードや鍵は入れない。make pull-app で入ってしまったら、isu.env の `APP_EXCLUDE` か .gitignore に足して取り除く。
 - ホストごとに違う設定は、`make pull F=... H=<ホスト名>` で server/<ホスト名>/ に取り込む（複数台構成のとき）。
 - /home/isucon/ 配下のファイル（env.sh など）も同じように取り込める。deploy では、所有者（isucon）を保ったまま書き戻す。
-- バックアップが欲しければ、GitHub の private リポジトリを作って人間が push する（`git remote add origin ...` → `git push -u origin main`）。
+- 手順 7 で作った private リポジトリへの push は、人間が行う（`git push -u origin main`）。バックアップにもなる。
 
 ## 初回に合わなければ直すところ
 

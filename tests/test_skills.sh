@@ -52,6 +52,20 @@ has "isu-ops がファイルに書く施策で APP_EXCLUDE を足させる" .cla
 has "reviewer が deploy で消えないかを見る" .claude/agents/reviewer.md 'APP_EXCLUDE'
 has "deploy の手引きが rsync --delete と APP_EXCLUDE を書く" docs/kit/deploy.md '`APP_EXCLUDE` に足す'
 
+echo "消した手順への参照（Makefile の help と scripts も見る）"
+check "results や消した手順への参照が無い" "" "$(grep -rlE 'results の無い design|results を書かせ|最新の results|手順 7 の判断|施策の回し方の 1' README.md CLAUDE.md Makefile docs/README.md docs/kit docs/flow .claude/skills .claude/agents scripts 2>/dev/null || true)"
+has "make test の help がテストの中身を挙げる" Makefile 'スキルの揃い'
+has "session-start の docs-merge の案内は操作役向け" scripts/hooks/session-start.sh '操作役なら make docs-merge'
+has "session-start は点検をスキルの 3 と案内する" scripts/hooks/session-start.sh 'isu-ops の 3'
+
+echo "CLAUDE.md とスキルの抜け"
+has "伝え方にベンチの出力の場所がある" CLAUDE.md 'logs/<時刻>-bench.txt'
+has "道具が失敗したら手引きを読む" CLAUDE.md 'docs/kit/<道具>.md'
+has "isu-ops が移行の間は results の次の候補も読む" .claude/skills/isu-ops/SKILL.md 'docs/results'
+has "isu-ops の最初の一周で回帰チェックの基準を取る" .claude/skills/isu-ops/SKILL.md '`make analyze` → `make snapshot`'
+has "first-time の一周で回帰チェックの基準を取る" docs/flow/first-time.md 'make snapshot'
+lacks "first-time に origin を二重に足す手順が無い" docs/flow/first-time.md 'git remote add origin'
+
 echo "本番の時間割"
 has "contest.md に初期データの退避がある" docs/flow/contest.md 'mysqldump'
 has "contest.md に最終のデータの確認がある" docs/flow/contest.md 'データが残っていることを確かめる'

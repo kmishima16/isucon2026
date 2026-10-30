@@ -5,7 +5,7 @@ Webアプリのパフォーマンスチューニング（ISUCON形式）を、�
 ## 前提
 
 - 文書の目次は `README.md`。道具ごとの手引きは `docs/kit/`、場面ごとの手順は `docs/flow/`、docs の規則は `docs/README.md`。
-- サーバー構成・アプリの場所・ベンチの方法は `isu.env`。道具の既定値は `scripts/lib.sh`。操作は `make help`。
+- サーバー構成・アプリの場所・ベンチの方法は `isu.env`。道具の既定値は `scripts/lib.sh`。操作は `make help`。道具をそのセッションで初めて使う前と、道具が失敗したときは、その手引き `docs/kit/<道具>.md` を読む。
 - **このリポジトリが正**。サーバーへの反映は `git commit` → `make deploy` だけで行う。
 - サーバーに置く設定ファイルは `server/all/<絶対パス>`（全台）か `server/<ホスト名>/<絶対パス>`（その台だけ）。既存の設定は `make pull F=/etc/...` で取り込んでから編集する。DB のスキーマ変更は `sql/NNN_*.sql`（何度流しても壊れない形で）。
 - 手元だけの環境変数は `.envrc`（direnv）。Claude の Bash では `direnv exec . make ...` で実行する。`make up` / `make down` は人間だけ。
@@ -37,7 +37,7 @@ Webアプリのパフォーマンスチューニング（ISUCON形式）を、�
 チャットでは：
 
 - 何をなぜ変え、どうなったかが分かればよい。報告の形は決めない。
-- 原因や提案には、人間が見に行ける場所を添える。計測は logs/ のファイルと行、コードは file:line、変更はコミットの SHA、グラフは pprotein（`make pp-up`、http://localhost:9000）。推測には「推測」と書く。
+- 原因や提案には、人間が見に行ける場所を添える。計測は logs/ のファイルと行、コードは file:line、変更はコミットの SHA、アプリのログは `make status`、ベンチの出力は `logs/<時刻>-bench.txt`、グラフは pprotein（`make pp-up`、http://localhost:9000）。推測には「推測」と書く。
 
 issue では（GitHub から読むので、手元のパスや行番号は見えない）：
 

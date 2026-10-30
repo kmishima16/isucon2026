@@ -23,13 +23,13 @@ description: ISUCON 形式のチューニングで、操作役として施策の
 
 ### 最初の一周（新しい問題）
 
-docs/flow/first-time.md の手順 3〜6 を回す：`make setup` → `make pull-app` → コミット → `make deploy` → `make bench` → `make analyze`。`make up` は人間だけが実行する。
+docs/flow/first-time.md の手順 3〜6 を回す：`make setup` → `make pull-app` → コミット → `make deploy` → `make bench` → `make analyze` → `make snapshot`（回帰チェックの基準。isu.env の `SNAPSHOT_*` を問題に合わせてから）。`make up` は人間だけが実行する。
 
 ## 施策の回し方
 
 ### 3. 候補を出す
 
-- open の issue・直近の analyze・仕様メモ（docs/overview）・調査役の案から、2〜3 案を出す。
+- open の issue・直近の analyze・仕様メモ（docs/overview）・調査役の案から、2〜3 案を出す。以前の運用で書いた docs/results の最新の「次の候補」がまだ issue になっていなければ、それも材料にする。
 - 各案に、仮説・根拠・期待・規模（小・中・大）・リスクを付ける。根拠には、見に行ける場所を添える（CLAUDE.md の伝え方）。
 - 同じときに open の issue を点検し、close の候補を挙げる（CLAUDE.md の issue の決まり）。
 - 次の候補は、前の施策のベンチの間に用意しておく。結果と一緒に出せば、人間を待たせない。

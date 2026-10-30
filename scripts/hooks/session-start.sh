@@ -14,8 +14,8 @@ if [ -f docs/scores.tsv ]; then rows="$(wc -l < docs/scores.tsv)"; fi
 if [ "$rows" -gt 1 ]; then make -s best N=5; else echo "まだ記録がありません"; fi
 echo
 echo "## 持ち越している改善項目"
-echo "open の issue は gh issue list で見る（施策の回し方の 1 で点検する）。"
+echo "open の issue は gh issue list で見る（isu-ops の 3「候補を出す」で点検する）。"
 echo
 echo "## docs の状態"
 n="$(bash scripts/docs.sh unmerged)"
-if [ "$n" = 0 ]; then echo "docs ブランチはすべて main に入っています"; else echo "main に入っていない docs のコミットが ${n} 件あります。make docs-merge で取り込む"; fi
+if [ "$n" = 0 ]; then echo "docs ブランチはすべて main に入っています"; else echo "main に入っていない docs のコミットが ${n} 件あります。操作役なら make docs-merge で取り込む"; fi

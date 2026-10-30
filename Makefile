@@ -21,7 +21,7 @@ status: ## アプリのログ（直近50行）
 
 lint: ## スクリプトの書き間違いを実行前に見つける（構文・変数直後の全角文字・shellcheck）
 	@bash scripts/lint.sh
-test: ## 道具の自動テスト（docs.sh・記録・hooks・lint）を、使い捨てのリポジトリで試す
+test: ## 道具の自動テスト（docs.sh・記録・hooks・lint・ロック・設定の反映・snapshot・sysstat・スキルの揃い）を、使い捨てのリポジトリで試す
 	@for t in tests/test_*.sh; do echo "== $$t"; bash "$$t" || exit 1; done
 
 # --- 準備 ---
@@ -63,7 +63,7 @@ measure-on: ## 計測を戻す設定に書き換えて commit → deploy
 	bash scripts/measure.sh on
 
 # --- 文書（積み上げる文書の状態と取り込み） ---
-docs-status: ## results の無い design と、main に入っていない docs のコミットを出す
+docs-status: ## main に入っていない docs（overview・retro）のコミットを出す
 	@bash scripts/docs.sh status
 docs-merge: ## docs ブランチを main に早送りで取り込む（doc-writer のコミットの直後に）
 	@bash scripts/docs.sh merge
