@@ -5,7 +5,7 @@
 ## 役割
 
 - `make analyze` は、alp（アクセスログ）・pt-query-digest（スローログ）・pprof・fgprof と、各台の vmstat・pidstat・memcached の stats をまとめて出し、logs/<時刻>-* に保存する。
-- vmstat・pidstat・memcached は、prebench が各台で始め（scripts/sysstat.sh start）、analyze が回収する（scripts/sysstat.sh collect）。台の上で取るので、ポータルのベンチでも同じ手順で使える。窓はベンチより長く取り（ポータルのベンチではさらに長く）、集計はベンチ中の秒だけを使う（vmstat は前後のアイドルを除き、pidstat は CPU を使っていた区間だけで平均する）。
+- vmstat・pidstat・memcached は、prebench が各台で始め（scripts/sysstat.sh start）、analyze が alp と pt-query-digest より先に回収する（scripts/sysstat.sh collect）。後に回すと、集計の CPU と、ベンチの終わりから analyze までの空きが平均に入る。台の上で取るので、ポータルのベンチでも同じ手順で使える。窓はベンチより長く取り（ポータルのベンチではさらに長く）、集計はベンチ中の秒だけを使う（vmstat は前後のアイドルを除き、pidstat は CPU を使っていた区間だけで平均する）。
 - `make prof` は、ベンチ中に pprof と fgprof を取る。`make bench PROFILE=1` でも自動で取る。手元に go が無ければ、サーバーの go で集計する。
 - どの施策をするかは決めない。操作役がここから候補を出し、人間が選ぶ（.claude/skills/isu-ops/SKILL.md の 3〜4）。
 

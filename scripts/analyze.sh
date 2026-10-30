@@ -4,6 +4,10 @@ source "$(dirname "$0")/lib.sh"
 T="$(cat "$LOG_DIR/latest" 2>/dev/null || ts)"
 [ -f "$LOG_DIR/$T-bench.txt" ] || { T="$(ts)"; echo "$T" > "$LOG_DIR/latest"; }
 
+# prebench から各台で取っていた vmstat・pidstat・memcached の stats。alp と pt-query-digest より先に回収する。
+# 後に回すと、その CPU と、ベンチの終わりから analyze までの空きが、ベンチ中の平均に入る（窓が閉じる前に analyze するポータルのベンチで起きる）
+bash "$ROOT/scripts/sysstat.sh" collect "$T"
+
 info "alp ($NGINX_HOST:$NGINX_LOG) 合計時間の降順"
 if rsh "$NGINX_HOST" "sudo test -s $NGINX_LOG"; then
   # alp は既定でアプリ側の時間（apptime）を読む。これまでの JSON と同じく、nginx が受けてから返すまでの時間（reqtime）で集計する
@@ -24,6 +28,4 @@ fi
 if [ -s "$LOG_DIR/$T-pprof.txt" ]; then info "pprof"; head -n 25 "$LOG_DIR/$T-pprof.txt"; fi
 if [ -s "$LOG_DIR/$T-fgprof-top.txt" ]; then info "fgprof（I/O 待ちを含む）"; head -n 25 "$LOG_DIR/$T-fgprof-top.txt"; fi
 
-# prebench から各台で取っていた vmstat・pidstat・memcached の stats
-bash "$ROOT/scripts/sysstat.sh" collect "$T"
 info "保存先: logs/$T-*"
