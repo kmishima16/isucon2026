@@ -16,7 +16,7 @@
 
 ## いつ使うか
 
-- 新しい問題の立ち上げ：操作役が `LOCAL_SEED` に全テーブルを並べて `make local-seed` を実行する（初期データの退避を兼ねる）。検証役がその後に compose を書き直し、`make local-up` で立てる。30 分ほどで立たなければ、やめる（docs/flow/contest.md の「道具が使えないとき」）。
+- 新しい問題の立ち上げ：操作役が `LOCAL_SEED` に全テーブルを並べて `make local-seed` を実行する（初期データの退避を兼ねる）。初期化を叩くまで DB が空の問題では、先に初期化を叩く（ISUCON13 がそうだった）。検証役がその後に compose を書き直し、`make local-up` で立てる。30 分ほどで立たなければ、やめる（docs/flow/contest.md の「道具が使えないとき」）。
 - サーバーを使わずに、画面や操作を手元で確かめたいとき。巡回（docs/kit/patrol.md）の前に local-up。
 
 ## 動かし方
