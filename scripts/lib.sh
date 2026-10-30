@@ -59,7 +59,10 @@ same_as_deployed() {
 
 # --- deploy / bench を直列化するロック（mkdir 方式で macOS でも動く） ---
 LOCK_DIR="$ROOT/.lock"
+# ロックとデプロイ済みの記録はチェックアウトごとにあるので、worktree から動かすと main の操作とすり抜けて重なる
+in_worktree() { [ "$(cd "$(git rev-parse --absolute-git-dir)" && pwd -P)" != "$(cd "$(git rev-parse --git-common-dir)" && pwd -P)" ]; }
 acquire_lock() {
+  if in_worktree; then die "サーバーを変える操作（$1）は main のチェックアウトで実行してください（ここは worktree: ${ROOT}）"; fi
   if ! mkdir "$LOCK_DIR" 2>/dev/null; then
     die "実行中の操作があります: $(cat "$LOCK_DIR/owner" 2>/dev/null || echo '?')
        終わるのを待つ。残骸なら（そのプロセスが居なければ）rm -rf .lock"

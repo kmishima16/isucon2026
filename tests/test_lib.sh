@@ -20,4 +20,15 @@ git commit -q -m "fix: x"
 check "docs/ 以外の差なら違う" "diff" "$(same)"
 finish_fixture
 
+echo "worktree ではロックを取らない"
+make_fixture
+git worktree add -q -b wt .claude/worktrees/wt main
+if out="$(cd .claude/worktrees/wt && bash -c 'source scripts/lib.sh; acquire_lock test' 2>&1)"; then
+  ng "worktree では失敗で終わる"
+else
+  contains "worktree では理由を出して止まる" "main のチェックアウトで" "$out"
+fi
+contains "main のチェックアウトではロックを取れる" "got" "$(bash -c 'source scripts/lib.sh; acquire_lock test && echo got' 2>&1)"
+finish_fixture
+
 report
