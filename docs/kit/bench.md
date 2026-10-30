@@ -7,7 +7,7 @@
 - `make prebench` は、計測ログ（アクセスログ・スローログ）を空にし、vmstat・pidstat・memcached の計測（docs/kit/analyze.md）と pprotein の収集を始める。
 - `make bench` は、prebench → isu.env の `BENCH_CMD` でベンチ → 結果を docs/scores.tsv に記録する。`E="期待した動き"` で施策の狙いを一緒に残す。
 - `make score S=<点数> [F=<fail の件数>]` は、ポータルのベンチなどを手で記録する。
-- `make best` は、記録の上位を出す（良かったコミットを探す）。pass でない行と fail のある行は出さない。pass でも fail が出ていることがあり、その版に戻すのを防ぐため。fail が分からない古い記録は `fail=?` で出す。
+- `make best` は、記録の上位を出す（良かったコミットを探す）。pass が false の行と fail のある行は出さない。pass でも fail が出ていることがあり、その版に戻すのを防ぐため。pass を読めなかった行（null など）は残す。fail は数でなければ空で記録する。fail が分からない古い記録は `fail=?` で出す。
 - 記録したら、docs/scores.tsv だけをその場でコミットする（`chore: ベンチ結果を記録する`）。未コミットのまま次の deploy が止まるのを防ぐため。ほかの変更は巻き込まない。ほかの git の操作（index.lock）と重なったら、外れるまで最長 30 秒待ってやり直す。
 - HEAD とデプロイ済みで docs/ 以外が違えば、警告する。
 - worktree（調査役の下ごしらえの場所）では断る（docs/kit/deploy.md）。

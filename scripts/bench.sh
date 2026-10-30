@@ -7,21 +7,26 @@
 source "$(dirname "$0")/lib.sh"
 
 record() {   # pass score memo expect fail
-  local f=docs/scores.tsv
+  local f=docs/scores.tsv fail="${5:-}"
+  # ポータルの JSON の形が想定と違うと、fail に配列や複数行が入り、1 件の記録が何行にも割れる。数でなければ空にする
+  [[ "$fail" =~ ^[0-9]+$ ]] || fail=""
   [ -f $f ] || printf 'time\trev\tpass\tscore\tmemo\texpect\tfail\n' > $f
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed_rev)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed_rev)" 2>/dev/null || true)}" "${4:-}" "${5:-}" >> $f
-  info "記録: rev=$(deployed_rev) pass=$1 score=$2 fail=${5:-?}${4:+  期待: $4}"
-  # 未コミットのまま残ると次の deploy が止まるので、記録だけをその場でコミットする（ほかの変更は巻き込まない）
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed_rev)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed_rev)" 2>/dev/null || true)}" "${4:-}" "$fail" >> $f
+  info "記録: rev=$(deployed_rev) pass=$1 score=$2 fail=${fail:-?}${4:+  期待: $4}"
+  # 未コミットのまま残ると次の deploy が止まるので、記録だけをその場でコミットする（ほかの変更は巻き込まない）。
+  # 追跡済みなら git add をしない。共有の index に載せると、その間に入った操作役のコミットに記録が混ざるため
   # bench を裏で回すと、操作役の git の操作と重なることがある。index.lock が外れるまで（最長 30 秒）待ってやり直す
-  local lock i
+  local lock i add=""
   lock="$(git rev-parse --git-dir)/index.lock"
+  git ls-files --error-unmatch $f >/dev/null 2>&1 || add=1
+  try_commit() { if [ -n "$add" ]; then git add $f || return 1; fi; git commit -q -m "chore: ベンチ結果を記録する" -- $f; }
   for i in $(seq 1 30); do
-    if git add $f 2>/dev/null && git commit -q -m "chore: ベンチ結果を記録する" -- $f 2>/dev/null; then return 0; fi
+    if try_commit 2>/dev/null; then return 0; fi
     [ -e "$lock" ] || break
     [ "$i" = 1 ] && info "ほかの git の操作が終わるのを待っています（${lock}）"
     sleep 1
   done
-  git add $f && git commit -q -m "chore: ベンチ結果を記録する" -- $f || die "$f をコミットできません"
+  try_commit || die "$f をコミットできません"
 }
 prebench() {
   # ポータルのベンチは、いつ始まるか分からない（待ち行列）。窓を長く取り、集計はベンチ中の秒だけを使う（scripts/sysstat.sh）

@@ -22,8 +22,15 @@ check "新しい記録の見出しに fail がある" "$(printf 'time\trev\tpass
 check "make score の F= が 7 列目に入る" "3" "$(tail -1 docs/scores.tsv | cut -f7)"
 printf '{"pass":true,"score":5,"fail":2,"messages":[]}\n' > portal.json
 printf "PORTAL_RESULT_URL=''\nPORTAL_RESULT_CMD='cat portal.json'\n" >> isu.env
-bash scripts/portal.sh >/dev/null 2>&1
+pout="$(bash scripts/portal.sh 2>&1 || true)"
+contains "ポータルの表示に fail を出す" "fail=2" "$pout"
+contains "make score の help に F= がある" "F=" "$(grep "^score:" Makefile)"
 check "portal の fail が 7 列目に入る" "$(printf '5\t2')" "$(tail -1 docs/scores.tsv | cut -f4,7)"
+lines="$(wc -l < docs/scores.tsv)"
+S=9 F='[1,
+2]' bash scripts/bench.sh score >/dev/null 2>&1
+check "fail が数値でなければ空にする" "$(printf '9\t')" "$(tail -1 docs/scores.tsv | cut -f4,7)"
+check "fail の形が崩れても 1 件は 1 行" "$((lines + 1))" "$(wc -l < docs/scores.tsv | tr -d ' ')"
 finish_fixture
 
 echo "make best"
@@ -33,22 +40,25 @@ make_fixture
   printf '20261030-100100\tbbb\ttrue\t200\tfail なし\t\t0\n'
   printf '20261030-100200\tccc\tfalse\t250\tpass でない\t\t0\n'
   printf '20261030-100300\tddd\ttrue\t100\t古い記録\t\n'
+  printf '20261030-100400\teee\tnull\t90\tpass を読めなかった\t\t\n'
 } >> docs/scores.tsv
 out="$(make -s best)"
 case "$out" in *"aaa"*) ng "fail のある行を出さない" ;; *) ok "fail のある行を出さない" ;; esac
 case "$out" in *"ccc"*) ng "pass でない行を出さない" ;; *) ok "pass でない行を出さない" ;; esac
 check "fail の無い行が先頭に来る" "bbb" "$(head -1 <<<"$out" | awk '{print $2}')"
 contains "fail が分からない古い行は ? と出して残す" "fail=?" "$(grep ddd <<<"$out")"
+contains "pass を読めなかった行（null）は残す" "eee" "$out"
 finish_fixture
 
 echo "ほかの git の操作（index.lock）と重なったとき"
 make_fixture
 touch .git/index.lock
-(if S=77 bash scripts/bench.sh score >/dev/null 2>&1; then echo 0; else echo 1; fi > rc) &
+(if S=77 bash scripts/bench.sh score > out 2>&1; then echo 0; else echo 1; fi > rc) &
 sleep 2
 rm -f .git/index.lock
 wait
 check "ロックが外れるのを待って記録を終える" "0" "$(cat rc)"
+contains "待つ経路を通った" "ほかの git の操作が終わるのを待っています" "$(cat out)"
 check "記録がコミットされている" "chore: ベンチ結果を記録する" "$(git log -1 --format=%s)"
 check "記録が未コミットで残らない" "" "$(git status --porcelain docs/scores.tsv)"
 finish_fixture
