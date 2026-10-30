@@ -21,12 +21,13 @@
 ## 確かめ方
 
 - alp の表・pt-query-digest の Profile・「[台] リソース」の 3 つが出る。
+- 「[台] リソース」の vmstat の行は、id が 90% 未満の最初の秒から最後の秒までの平均で、間のアイドルも含む。走行前の整合性チェックが長い問題では、初期化から走行の始まりまでの空きが入り、CPU が空いて見える。CPU の空きは、`logs/<時刻>-<台>/vmstat.txt` の負荷の区間の毎秒の行で見る。
 - 「/tmp/isu-measure が無い」と出たら、prebench の後にサーバーを再起動している。もう一度 bench する。
 - pprof が取れないときは、`make measure-show` でアプリが pprof を待ち受けているかを見る（docs/kit/measure.md）。
 
 ## 更新のしかた
 
 - alp の URI のまとめ方：isu.env の `ALP_MATCH`。
-- 計測の秒数：scripts/lib.sh の `MEASURE_SECONDS`（手元でベンチ）と `PORTAL_MEASURE_SECONDS`（BENCH_CMD が空でポータルからベンチ）。変えるときは isu.env に書く。直したら `make test`（tests/test_sysstat.sh）。
+- 計測の秒数：scripts/lib.sh の `MEASURE_SECONDS`（手元でベンチ）と `PORTAL_MEASURE_SECONDS`（BENCH_CMD が空でポータルからベンチ）。変えるときは isu.env に書く。走行前のチェックが長い問題では、チェックと走行を足した時間より長くする（ISUCON13 では `MEASURE_SECONDS` と `PPROTEIN_SECONDS` を 150 にした）。直したら `make test`（tests/test_sysstat.sh）。
 - pprof の URL：isu.env の `PPROF_URL`・`FGPROF_URL`。DB 待ちも見たいなら、アプリに fgprof（github.com/felixge/fgprof）を /debug/fgprof で足し、`FGPROF_URL` と `PPROTEIN_PPROF_PATHS` に加える。
 - 直したら `make lint`。練習環境で bench → analyze を通す。
