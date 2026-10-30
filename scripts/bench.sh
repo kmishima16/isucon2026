@@ -2,14 +2,15 @@
 # make prebench : 計測ログを空にする（本番でポータルからベンチを回す前にも使う）
 # make bench    : prebench → BENCH_CMD → スコアを docs/scores.tsv に記録   （PROFILE=1 で pprof と fgprof も）
 #                 E="期待した動き" で、施策の狙い（例: E="GET / の DB 待ちが消える"）を一緒に残す。M=メモ で memo を上書き
-# make score S=<点数> [M=メモ] [E=期待] : 手で記録（本番用）
+# make score S=<点数> [M=メモ] [E=期待] [F=fail の件数] : 手で記録（本番用）
+# 記録の fail 列は、make best が fail のある版を選ばないために使う（pass でも fail が出ていることがある）
 source "$(dirname "$0")/lib.sh"
 
-record() {   # pass score memo expect
+record() {   # pass score memo expect fail
   local f=docs/scores.tsv
-  [ -f $f ] || printf 'time\trev\tpass\tscore\tmemo\texpect\n' > $f
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed_rev)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed_rev)" 2>/dev/null || true)}" "${4:-}" >> $f
-  info "記録: rev=$(deployed_rev) pass=$1 score=$2${4:+  期待: $4}"
+  [ -f $f ] || printf 'time\trev\tpass\tscore\tmemo\texpect\tfail\n' > $f
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(ts)" "$(deployed_rev)" "$1" "$2" "${3:-$(git log -1 --format=%s "$(deployed_rev)" 2>/dev/null || true)}" "${4:-}" "${5:-}" >> $f
+  info "記録: rev=$(deployed_rev) pass=$1 score=$2 fail=${5:-?}${4:+  期待: $4}"
   # 未コミットのまま残ると次の deploy が止まるので、記録だけをその場でコミットする（ほかの変更は巻き込まない）
   git add $f
   git commit -q -m "chore: ベンチ結果を記録する" -- $f || die "$f をコミットできません"
@@ -26,7 +27,7 @@ prebench() {
 refuse_in_worktree "${1:-bench}"
 case "${1:-bench}" in
   prebench) prebench ;;
-  score) record "${PASS:-true}" "${S:?S=<点数> を指定}" "${M:-}" "${E:-}" ;;
+  score) record "${PASS:-true}" "${S:?S=<点数> を指定}" "${M:-}" "${E:-}" "${F:-}" ;;
   bench)
     acquire_lock "bench"
     same_as_deployed || warn "HEAD とデプロイ済み($(deployed_rev))で docs/ 以外が違います。意図どおりですか？"
@@ -45,7 +46,8 @@ case "${1:-bench}" in
     RESULT="$(grep -Eo '\{"pass".*\}' "$LOG_DIR/$T-bench.txt" | tail -1 || true)"
     PASS="$(grep -Eo '"pass":(true|false)' <<<"$RESULT" | cut -d: -f2 || true)"
     SCORE="$(grep -Eo '"score":-?[0-9]+' <<<"$RESULT" | cut -d: -f2 || true)"
+    FAIL="$(grep -Eo '"fail":[0-9]+' <<<"$RESULT" | cut -d: -f2 || true)"
     # 結果の形式が違う問題では手で記録する
-    if [ -n "$SCORE" ]; then record "${PASS:-?}" "$SCORE" "${M:-}" "${E:-}"; else warn "スコアを読み取れませんでした。make score S=<点数> で記録してください"; fi
+    if [ -n "$SCORE" ]; then record "${PASS:-?}" "$SCORE" "${M:-}" "${E:-}" "$FAIL"; else warn "スコアを読み取れませんでした。make score S=<点数> [F=<fail の件数>] で記録してください"; fi
     ;;
 esac

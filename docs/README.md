@@ -60,7 +60,7 @@ docs/ には 3 種類の文書を置きます。種類ごとに、書く人・�
 
 ## 記録（scores.tsv）
 
-- 列は time（手元の時刻の YYYYmmdd-HHMMSS）・rev（deploy 済みのコミット）・pass・score・memo・expect（make bench の `E=`）。
+- 列は time（手元の時刻の YYYYmmdd-HHMMSS）・rev（deploy 済みのコミット）・pass・score・memo・expect（make bench の `E=`）・fail（失敗したリクエストの件数。分からなければ空）。
 - retro からは、該当する行をそのまま引く。
 
 ## 書き方

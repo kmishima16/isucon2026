@@ -23,7 +23,7 @@ fetch() {
 
 # 1 件の結果を取り出す。新しいものがあれば 0、記録済みなら 1
 check() {
-  local json id pass score
+  local json id pass score fail
   json="$(fetch)" || die "結果を取り出せません"
   # 結果が配列で返るポータルでは、PORTAL_JQ_PICK で 1 件を選ぶ（例: '.[0]'）
   json="$(jq -c "$PORTAL_JQ_PICK" <<<"$json")" || die "JSON として読めません: $(head -c 200 <<<"$json")"
@@ -32,12 +32,13 @@ check() {
   if grep -qxF "$id" "$SEEN"; then return 1; fi
   pass="$(jq -r "$PORTAL_JQ_PASS" <<<"$json")"
   score="$(jq -r "$PORTAL_JQ_SCORE" <<<"$json")"
+  fail="$(jq -r "($PORTAL_JQ_FAIL) // empty" <<<"$json")"
   T="$(ts)"; printf '%s\n' "$json" > "$LOG_DIR/$T-portal.json"
   info "ポータルの結果 $id: pass=$pass score=${score}（logs/$T-portal.json）"
   jq -r "$PORTAL_JQ_MESSAGES // [] | .[]?" <<<"$json" | head -n 10 | sed 's/^/  /'
   [[ "$score" =~ ^-?[0-9]+$ ]] || die "スコアを数値として読めません: ${score}（PORTAL_JQ_SCORE を確認）"
   # check は && や || の中から呼ぶので set -e が効かない。記録に失敗したら、ここで止めて ID を記録済みにしない
-  PASS="$pass" S="$score" M="${M:-portal $id}" bash "$ROOT/scripts/bench.sh" score || die "記録できませんでした（上のメッセージ）"
+  PASS="$pass" S="$score" F="$fail" M="${M:-portal $id}" bash "$ROOT/scripts/bench.sh" score || die "記録できませんでした（上のメッセージ）"
   echo "$id" >> "$SEEN"
 }
 

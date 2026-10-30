@@ -6,8 +6,8 @@
 
 - `make prebench` は、計測ログ（アクセスログ・スローログ）を空にし、vmstat・pidstat・memcached の計測（docs/kit/analyze.md）と pprotein の収集を始める。
 - `make bench` は、prebench → isu.env の `BENCH_CMD` でベンチ → 結果を docs/scores.tsv に記録する。`E="期待した動き"` で施策の狙いを一緒に残す。
-- `make score S=<点数>` は、ポータルのベンチなどを手で記録する。
-- `make best` は、記録の上位を出す（良かったコミットを探す）。
+- `make score S=<点数> [F=<fail の件数>]` は、ポータルのベンチなどを手で記録する。
+- `make best` は、記録の上位を出す（良かったコミットを探す）。pass でない行と fail のある行は出さない。pass でも fail が出ていることがあり、その版に戻すのを防ぐため。fail が分からない古い記録は `fail=?` で出す。
 - 記録したら、docs/scores.tsv だけをその場でコミットする（`chore: ベンチ結果を記録する`）。未コミットのまま次の deploy が止まるのを防ぐため。ほかの変更は巻き込まない。
 - HEAD とデプロイ済みで docs/ 以外が違えば、警告する。
 - worktree（調査役の下ごしらえの場所）では断る（docs/kit/deploy.md）。
@@ -25,7 +25,7 @@
 
 - 最後に「記録: rev=... pass=... score=...」が出る。`git log -1` が `chore: ベンチ結果を記録する` になっている。
 - スコアを読み取れなかったときは、logs/<時刻>-bench.txt を見て `make score S=<点数>`。
-- docs/scores.tsv の列は time・rev・pass・score・memo・expect。
+- docs/scores.tsv の列は time・rev・pass・score・memo・expect・fail。fail は結果の JSON の `fail`（make bench）、`PORTAL_JQ_FAIL`（make portal）、`F=`（make score）から入る。
 
 ## 更新のしかた
 

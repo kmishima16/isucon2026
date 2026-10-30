@@ -21,6 +21,7 @@ source "$ROOT/isu.env"
 : "${PORTAL_JQ_ID=}"                # 結果を見分ける ID（例: '.id'）。空なら中身で見分ける
 : "${PORTAL_JQ_PASS:=.pass}"
 : "${PORTAL_JQ_SCORE:=.score}"
+: "${PORTAL_JQ_FAIL:=.fail}"      # 無い形のポータルでは空になり、記録の fail は空（make best では ? と出る）
 : "${PORTAL_JQ_MESSAGES:=.messages}"
 
 LOG_DIR="$ROOT/logs"; mkdir -p "$LOG_DIR"
