@@ -11,6 +11,8 @@ source "$ROOT/isu.env"
 : "${MEASURE_SECONDS:=70}"          # prebench から vmstat・pidstat を取る秒数。ベンチより少し長く
 : "${MEMCACHED_PORT:=11211}"        # memcached の stats を取るポート
 : "${SNAPSHOT_INIT=/initialize}"    # make snapshot / compare の前に叩いてデータをそろえる（空なら叩かない）
+: "${SNAPSHOT_INIT_METHOD:=GET}"     # 初期化のメソッド（ISUCON13 は POST）
+: "${SNAPSHOT_CURL_OPTS=}"          # snapshot / compare の curl に足すオプション（例: -k -H 'Host: pipe.u.isucon.local'）
 : "${LOCAL_PORT:=8080}"             # make local-up で手元に開くポート
 : "${LOCAL_UPSTREAM:=localhost:8080}"  # サイト設定の中のアプリの宛先（手元の nginx では app:8080 に差し替える）
 : "${PPROTEIN_VERSION:=v1.2.4}"

@@ -27,4 +27,5 @@
 ## 更新のしかた
 
 - 比べるページと、消す部分：isu.env の `SNAPSHOT_URLS`・`SNAPSHOT_IGNORE`（問題ごとに書き直す）。
-- 直したら `make lint`。練習環境で snapshot → compare が「すべて同じ」になり、わざと変えると DIFF になることを見る。
+- 初期化と接続のしかた：`SNAPSHOT_INIT`・`SNAPSHOT_INIT_METHOD`（ISUCON13 は `/api/initialize` を POST）・`SNAPSHOT_BASE`（HTTPS なら https://...）・`SNAPSHOT_CURL_OPTS`（Host ヘッダーや `-k` など。既定値は scripts/lib.sh）。
+- 直したら `make lint` と `make test`（tests/test_snapshot.sh）。練習環境で snapshot → compare が「すべて同じ」になり、わざと変えると DIFF になることを見る。

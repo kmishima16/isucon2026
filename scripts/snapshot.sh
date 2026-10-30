@@ -4,10 +4,13 @@
 #   make compare  [BASE=base] [NAME=current] : NAME を取り直して BASE と比べる（違えば終了コード 1）
 # 取る前に SNAPSHOT_INIT（/initialize など）を叩いて、データを初期状態にそろえる。
 # 対象は isu.env の SNAPSHOT_URLS。CSRF トークンなど毎回変わる部分は SNAPSHOT_IGNORE で消してから比べる。
+# 問題によって初期化のメソッド（ISUCON13 は POST /api/initialize）や、Host・HTTPS が違うので、
+# SNAPSHOT_INIT_METHOD と SNAPSHOT_CURL_OPTS（例: -k -H 'Host: pipe.u.isucon.local'）で合わせる。
 source "$(dirname "$0")/lib.sh"
 [ -n "${SNAPSHOT_URLS:-}" ] || die "isu.env の SNAPSHOT_URLS が空です"
 h="${APP_HOSTS%% *}"
 BASE_URL="${SNAPSHOT_BASE:-http://localhost}"
+OPTS="${SNAPSHOT_CURL_OPTS:-}"
 SNAP_DIR="$LOG_DIR/snapshot"
 
 slug() { printf '%s' "$1" | sed -E 's#^/##; s#[^A-Za-z0-9._-]+#_#g; s#^$#_root#'; }
@@ -16,14 +19,14 @@ take() {   # 名前
   local dir="$SNAP_DIR/$1" u s
   rm -rf "$dir"; mkdir -p "$dir"
   if [ -n "${SNAPSHOT_INIT:-}" ]; then
-    rsh "$h" "curl -fsS -o /dev/null --max-time 60 '$BASE_URL$SNAPSHOT_INIT'" || die "$SNAPSHOT_INIT が失敗しました"
+    rsh "$h" "curl -fsS -o /dev/null --max-time 60 -X $SNAPSHOT_INIT_METHOD $OPTS '$BASE_URL$SNAPSHOT_INIT'" || die "$SNAPSHOT_INIT が失敗しました"
   fi
   echo "$(cut -d' ' -f1 "$LOG_DIR/deployed" 2>/dev/null || echo '?') $(date '+%F %T')" > "$dir/.rev"
   for u in $SNAPSHOT_URLS; do
     s="$(slug "$u")"
     # 本文と、ステータス・Content-Type を分けて保存する（本文は画像などバイナリもある）
-    rsh "$h" "curl -sS --max-time 30 '$BASE_URL$u'" > "$dir/$s.body"
-    printf '%s\t%s\n' "$u" "$(rsh "$h" "curl -sS -o /dev/null --max-time 30 -w '%{http_code} %{content_type}' '$BASE_URL$u'")" >> "$dir/index.tsv"
+    rsh "$h" "curl -sS --max-time 30 $OPTS '$BASE_URL$u'" > "$dir/$s.body"
+    printf '%s\t%s\n' "$u" "$(rsh "$h" "curl -sS -o /dev/null --max-time 30 $OPTS -w '%{http_code} %{content_type}' '$BASE_URL$u'")" >> "$dir/index.tsv"
   done
   info "保存: logs/snapshot/$1/（rev $(cut -d' ' -f1 "$dir/.rev")、$(wc -l < "$dir/index.tsv" | tr -d ' ') ページ）"
 }
