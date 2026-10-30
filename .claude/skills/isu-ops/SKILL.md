@@ -29,7 +29,7 @@ description: ISUCON 形式のチューニングで、操作役として施策の
 
 1. isu.env を問題に合わせる（ホスト・アプリの場所・サービス名・`BUILD_CMD`・DB の接続・`BENCH_CMD`・`HEALTH_URL`・`SNAPSHOT_*`・`LOCAL_*`）。Go などが PATH に無ければ、`BUILD_CMD` に絶対パスで書く。問題ごとの違いは isu.env と server/ で吸収し、キットのスクリプトは直さない。
 2. `make setup`。
-3. `make pull-app` → `chore: 初期アプリを取り込む` でコミットする。調査役と検証役に、コミットの SHA を添えてメッセージで伝える。
+3. `make pull-app` → `chore: 初期アプリを取り込む` でコミットする。調査役と検証役に、コミットの SHA を添えてメッセージで伝える。まだ開いていなければ、人間に開くよう一言伝え、待たずに進む。
 4. 初期データを手元に退避する。サーバーのデータがまだ初期のままの、この時点で取る。
    - isu.env の `LOCAL_SEED` に全テーブルを並べ（`SHOW TABLES` で調べる）、`LOCAL_DB_NAME`・`LOCAL_PUBLIC_REMOTE` も合わせて、`make local-seed` を実行する。
    - ダンプは `local/data/initdb/00_seed.sql.gz`（git の管理外、中身は mysqldump）、静的ファイルは `local/public/` に入る。壊したときの戻し先にもなる（退避されるのは 1 つの DB だけ）。

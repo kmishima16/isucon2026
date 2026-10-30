@@ -17,7 +17,17 @@ cp .envrc.example .envrc && direnv allow
 # 3. 環境を作り、計測ツールを入れる
 make up                       # 人間だけ。isuenv で競技 1 台 + ベンチ 1 台（TTL 4h）
 make setup                    # 計測ツールの導入、apt の自動更新と snapd の停止、isu.env の SETUP_CMD
+```
 
+`make up` が終わったら、`make setup` を待たずに、Claude Code でこのフォルダを開きます。最初に開いたときは、フォルダの信頼の確認に同意します。同意するまで hooks（docs/kit/hooks.md）が動きません。
+
+続けて、Claude Code で 3 つのセッションを同時に開きます。操作役に `/isu-ops`、調査役に `/isu-research`、検証役に `/isu-local` を打ちます（CLAUDE.md の役割）。操作役がアプリを取り込む前に開いておくと、取り込みのコミットをメッセージで受け取れます。後から開いても、`git log main` とファイルから追いつけます。
+
+セッションは、会話の fork ではなく、新しく開きます。fork は元の会話とスキルを引き継ぐので、2 つのセッションが同じ役として動いてしまいます。足りない文脈は、人間がチャットで数行渡せば足ります。
+
+手順 3 の `make setup` から 6 までは、`/isu-ops` の「立ち上げ」に任せて構いません（`make up` は人間だけ）。
+
+```bash
 # 4. アプリを取り込む（APP_REMOTE → APP_LOCAL。APP_EXCLUDE のビルド成果物は除く）
 make pull-app
 git status                    # 余計なもの（バイナリ・巨大ファイル）が入っていないかを見る
@@ -35,10 +45,6 @@ make snapshot                 # 回帰チェックの基準（isu.env の SNAPSH
 # 7. 持ち越しの issue の置き場として、GitHub に private リポジトリを作る（人間）
 gh repo create <名前> --private --source . --remote origin
 ```
-
-ここまで通ったら、Claude Code でこのフォルダを開きます。最初に開いたときは、フォルダの信頼の確認に同意します。同意するまで hooks（docs/kit/hooks.md）が動きません。
-
-続けて、Claude Code で 3 つのセッションを同時に開きます。操作役に `/isu-ops`、調査役に `/isu-research`、検証役に `/isu-local` を打ちます（CLAUDE.md の役割）。手順 3〜6 は、`/isu-ops` の「立ち上げ」に任せても構いません。
 
 ## 取り込むときの注意
 
