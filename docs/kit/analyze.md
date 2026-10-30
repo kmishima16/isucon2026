@@ -5,7 +5,7 @@
 ## 役割
 
 - `make analyze` は、alp（アクセスログ）・pt-query-digest（スローログ）・pprof・fgprof と、各台の vmstat・pidstat・memcached の stats をまとめて出し、logs/<時刻>-* に保存する。
-- vmstat・pidstat・memcached は、prebench が各台で始め（scripts/sysstat.sh start）、analyze が回収する（scripts/sysstat.sh collect）。台の上で取るので、ポータルのベンチでも同じ手順で使える。
+- vmstat・pidstat・memcached は、prebench が各台で始め（scripts/sysstat.sh start）、analyze が回収する（scripts/sysstat.sh collect）。台の上で取るので、ポータルのベンチでも同じ手順で使える。窓はベンチより長く取り（ポータルのベンチではさらに長く）、集計はベンチ中の秒だけを使う（vmstat は前後のアイドルを除き、pidstat は CPU を使っていた区間だけで平均する）。
 - `make prof` は、ベンチ中に pprof と fgprof を取る。`make bench PROFILE=1` でも自動で取る。手元に go が無ければ、サーバーの go で集計する。
 - どの施策をするかは決めない。操作役がここから候補を出し、人間が選ぶ（.claude/skills/isu-ops/SKILL.md の 3〜4）。
 
@@ -27,6 +27,6 @@
 ## 更新のしかた
 
 - alp の URI のまとめ方：isu.env の `ALP_MATCH`。
-- 計測の秒数：scripts/lib.sh の `MEASURE_SECONDS`（変えるときは isu.env に書く）。
+- 計測の秒数：scripts/lib.sh の `MEASURE_SECONDS`（手元でベンチ）と `PORTAL_MEASURE_SECONDS`（BENCH_CMD が空でポータルからベンチ）。変えるときは isu.env に書く。直したら `make test`（tests/test_sysstat.sh）。
 - pprof の URL：isu.env の `PPROF_URL`・`FGPROF_URL`。DB 待ちも見たいなら、アプリに fgprof（github.com/felixge/fgprof）を /debug/fgprof で足し、`FGPROF_URL` と `PPROTEIN_PPROF_PATHS` に加える。
 - 直したら `make lint`。練習環境で bench → analyze を通す。

@@ -16,6 +16,8 @@ record() {   # pass score memo expect fail
   git commit -q -m "chore: ベンチ結果を記録する" -- $f || die "$f をコミットできません"
 }
 prebench() {
+  # ポータルのベンチは、いつ始まるか分からない（待ち行列）。窓を長く取り、集計はベンチ中の秒だけを使う（scripts/sysstat.sh）
+  if [ -z "${BENCH_CMD:-}" ]; then export MEASURE_SECONDS="$PORTAL_MEASURE_SECONDS" PPROTEIN_SECONDS="$PORTAL_MEASURE_SECONDS"; fi
   rsh "$NGINX_HOST" "sudo truncate -s0 $NGINX_LOG 2>/dev/null || true"
   rsh "$DB_HOST" "sudo truncate -s0 $SLOW_LOG 2>/dev/null || true"
   info "計測ログを空にしました"

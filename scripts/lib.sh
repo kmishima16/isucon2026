@@ -9,6 +9,7 @@ source "$ROOT/isu.env"
 # --- 道具の既定値。問題で変わらないものはここに置き、変えたいときだけ isu.env に書く（isu.env が優先） ---
 # := は空でも既定値にする。= は isu.env で空にすると「使わない」になるもの
 : "${MEASURE_SECONDS:=70}"          # prebench から vmstat・pidstat を取る秒数。ベンチより少し長く
+: "${PORTAL_MEASURE_SECONDS:=240}"  # BENCH_CMD が空（ポータルからベンチ）のときの窓。開始が遅れても外さないよう長く取る
 : "${MEMCACHED_PORT:=11211}"        # memcached の stats を取るポート
 : "${SNAPSHOT_INIT=/initialize}"    # make snapshot / compare の前に叩いてデータをそろえる（空なら叩かない）
 : "${SNAPSHOT_INIT_METHOD:=GET}"     # 初期化のメソッド（ISUCON13 は POST）
