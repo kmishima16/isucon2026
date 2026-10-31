@@ -40,76 +40,38 @@ func getImageHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 
 		ctx := c.Request().Context()
-		owner, cachedOwner := h.ImageOwners.get(input.ImageID)
-		if cachedOwner {
-			key, err := imageSigningKey(owner.SecretKeyHash)
-			if err != nil {
-				return err
-			}
-			// 署名が合わないときは、持ち主が退会していないかを DB で確かめてから扱いを決める（退会した人の画像は不正な署名として記録しない）
-			cachedOwner = verifyImageSignature(key, input.ImageID, exp, sig)
-		}
-		if !cachedOwner {
-			owner, err = getImageOwnerKey(ctx, h.DB, input.ImageID)
-			if errors.Is(err, sql.ErrNoRows) {
-				return NewAPIError(http.StatusForbidden, "image_forbidden")
-			}
-			if err != nil {
-				return err
-			}
-			key, err := imageSigningKey(owner.SecretKeyHash)
-			if err != nil {
-				return err
-			}
-			if !verifyImageSignature(key, input.ImageID, exp, sig) {
-				c.Set("abuse", "invalid_signature")
-				return NewAPIError(http.StatusForbidden, "image_forbidden")
-			}
-			h.ImageOwners.set(input.ImageID, owner)
-		}
-
-		// 削除状態を毎回確認する。即時反映も5秒以内の許容範囲に含まれる。
-		// 中身はこの台が持っていれば読まない（image_data_cache.go）
+		// 中身はこの台が持っていれば読まない（image_data_cache.go）。初期データの投稿の画像は、書き出したディスクから読む（initial_image_store.go）
 		cached, haveData := h.ImageData.get(input.ImageID)
-		external := owner.Host != nil
-		// 初期データの投稿の画像は、書き出したディスクから読む（initial_image_store.go）
-		if !haveData && !external {
+		if !haveData {
 			if cached, haveData = initialImages.read(input.ImageID); haveData {
 				h.ImageData.set(input.ImageID, cached)
 			}
 		}
-		var object struct {
-			Data      []byte `db:"data"`
-			MediaType string `db:"media_type"`
-		}
-		err = h.DB.GetContext(ctx, &object, `
-   SELECT CASE WHEN $2 THEN NULL ELSE i.data END AS data, i.media_type
-   FROM image_objects i JOIN users u ON u.id = i.owner_user_id AND u.status = 'active'
-   WHERE i.id = $1 AND i.created_at = $3 AND (
-     u.profile_image_id = i.id
-     OR EXISTS (
-       SELECT 1 FROM posts p
-       WHERE p.image_id = i.id AND p.author_id = u.id AND p.deleted_at IS NULL
-     )
-     OR EXISTS (
-       SELECT 1 FROM realmojis r
-       JOIN posts p ON p.id = r.post_id AND p.deleted_at IS NULL
-       JOIN users author ON author.id = p.author_id AND author.status = 'active'
-       WHERE r.image_id = i.id AND r.reactor_id = u.id AND r.replaced_at IS NULL AND r.deleted_at IS NULL
-     )
-   )
-  `, input.ImageID, haveData || external, owner.CreatedAt)
+		// 削除状態を毎回確認する。即時反映も5秒以内の許容範囲に含まれる
+		object, err := getServableImage(ctx, h.DB, input.ImageID, haveData)
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewAPIError(http.StatusForbidden, "image_forbidden")
 		}
 		if err != nil {
 			return err
 		}
+		key, err := imageSigningKey(object.SecretKeyHash)
+		if err != nil {
+			return err
+		}
+		// 持ち主が退会した画像は上で 403 にしてあり、不正な署名として記録しない（今までと同じ順）
+		if !verifyImageSignature(key, input.ImageID, exp, sig) {
+			c.Set("abuse", "invalid_signature")
+			return NewAPIError(http.StatusForbidden, "image_forbidden")
+		}
+		if !object.Live {
+			return NewAPIError(http.StatusForbidden, "image_forbidden")
+		}
 		switch {
 		case haveData:
 			object.Data = cached
-		case external:
-			if object.Data, err = images.load(ctx, *owner.Host, input.ImageID); err != nil {
+		case object.Host != nil:
+			if object.Data, err = images.load(ctx, *object.Host, input.ImageID); err != nil {
 				return err
 			}
 		default:

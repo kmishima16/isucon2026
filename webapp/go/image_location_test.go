@@ -47,15 +47,15 @@ func TestImageObjectLocations(t *testing.T) {
 	if located != 3 {
 		t.Fatalf("locations written with images: %d", located)
 	}
-	key, err := getImageOwnerKey(ctx, db, "with-time")
+	key, err := getServableImage(ctx, db, "with-time", false)
 	if err != nil || !key.CreatedAt.Equal(postedAt) {
 		t.Fatalf("located image: %+v %v", key, err)
 	}
-	if key, err := getImageOwnerKey(ctx, db, "legacy"); err != nil || key.SecretKeyHash == "" {
+	if key, err := getServableImage(ctx, db, "legacy", false); err != nil || key.SecretKeyHash == "" || string(key.Data) != "D" {
 		t.Fatalf("image without location: %+v %v", key, err)
 	}
 	for _, id := range []string{"gone-image", "missing"} {
-		if _, err := getImageOwnerKey(ctx, db, id); !errors.Is(err, sql.ErrNoRows) {
+		if _, err := getServableImage(ctx, db, id, false); !errors.Is(err, sql.ErrNoRows) {
 			t.Fatalf("%s: %v", id, err)
 		}
 	}
