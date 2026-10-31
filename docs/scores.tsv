@@ -47,3 +47,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-165459	8f43191	true	96266	perf: asia1・asia2 のユーザー検索を台のメモリの利用者の写しで照合し、DB には差分とブロックだけを 1 回で聞く (#13)	asia1・asia2 の検索を台のメモリの写しで照合し、検索のクエリが DB の上位から消える	
 20261031-165740	2996be9	true	94789	chore: ベンチ結果を記録する	europe1・america1 で今日の投稿を台のメモリに持ち、投稿期間と自分の今日の投稿を DB に聞かずに返す	
 20261031-170050	4e34a5e	true	102166	chore: ベンチ結果を記録する	エクスポートで画像の表を引かず、画像の判定で区画を 1 つに絞り、DB の上位 1・2 位が減る	
+20261031-170503	0a65c9b	true	99020	perf: europe1・america1 の DB の接続を 15 本から 60 本に増やす	asia2 の max_connections 200、europe1・america1 の接続 60 本で、欧米の 1 秒あたりの件数の天井が上がる	
