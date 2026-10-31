@@ -72,6 +72,12 @@ func getImageHandler(h *HandlerContext) echo.HandlerFunc {
 		// 中身はこの台が持っていれば読まない（image_data_cache.go）
 		cached, haveData := h.ImageData.get(input.ImageID)
 		external := owner.Host != nil
+		// 初期データの投稿の画像は、書き出したディスクから読む（initial_image_store.go）
+		if !haveData && !external {
+			if cached, haveData = initialImages.read(input.ImageID); haveData {
+				h.ImageData.set(input.ImageID, cached)
+			}
+		}
 		var object struct {
 			Data      []byte `db:"data"`
 			MediaType string `db:"media_type"`

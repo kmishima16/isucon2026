@@ -30,11 +30,19 @@ func exportPostsHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		cached := make(map[string][]byte, len(imageIDs))
 		cachedIDs := make([]string, 0, len(imageIDs))
+		missing := make([]string, 0, len(imageIDs))
 		for _, id := range imageIDs {
 			if data, ok := h.ImageData.get(id); ok {
 				cached[id] = data
 				cachedIDs = append(cachedIDs, id)
+			} else {
+				missing = append(missing, id)
 			}
+		}
+		// 初期データの投稿の画像は、書き出したディスクから読む（initial_image_store.go）。1 人で数百枚あり、台ごとのメモリには入れない
+		for id, data := range initialImages.readMany(missing) {
+			cached[id] = data
+			cachedIDs = append(cachedIDs, id)
 		}
 		var posts []struct {
 			Post
