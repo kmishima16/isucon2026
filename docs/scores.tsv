@@ -2,3 +2,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-102616	?	true	2520	初期状態（deploy 前、人間がポータルで回した初回ベンチ）		
 20261031-104000	c747f44	true	3925	chore: PostgreSQL のクエリを pg_stat_statements で計測する	計測を足しただけ。初回 2520 と同じ帯の見込み	
 20261031-104418	8642ac4	true	4998	perf: PostgreSQL の shared_buffers などを台のメモリに合わせて上げる	画像の取得の全件走査が消え、GET /api/images の合計時間が大きく減る	
+20261031-105432	1263859	true	13903	perf: 登録のユーザー名の重複を表ロックでなく一意インデックスで防ぐ	投稿期間の FOR UPDATE と登録の LOCK TABLE users の待ちが減り、europe の POST /api/posts が速くなる	
