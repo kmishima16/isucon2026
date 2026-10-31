@@ -56,3 +56,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-172759	d3c6017	true	115727	perf: asia1 の nginx で asia2 のアプリに振る分を 5 分の 1 から 9 分の 1 に減らし、asia2 の DB に CPU を返す	SSE の作り直し・絞りを切る・asia2 への振り分け 8:1 をまとめて入れる	
 20261031-173218	58e4b41	true	117147	perf: europe1・america1 の DB の接続を 30 本から 40 本に増やす	asia2 への振り分けを止め、europe1・america1 の接続を 40 本にする	
 20261031-175345	4044a8b	true	88726	perf: asia1 でも確かめたセッションを 3 秒覚え、asia2 の DB へのセッションの確認を減らす（転送された分は覚えない）	pgbouncer・asia1 の同期の複製・欧米の複製の読み取り・Memories の同時読み・asia1 のセッションの覚えをまとめて入れる	
+20261031-175558	81f1a17	true	101829	chore: ベンチ結果を記録する	欧米の複製の接続が pgbouncer に向いていたのを直し、欧米の読みを手元の複製で処理する	
