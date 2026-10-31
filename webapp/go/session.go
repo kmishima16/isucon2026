@@ -48,8 +48,12 @@ func getSessionFromHeader(c *echo.Context, db *sqlx.DB) (*Session, error) {
 
 	tokenHashBytes := sha256.Sum256([]byte(token))
 	tokenHash := hex.EncodeToString(tokenHashBytes[:])
-	if cached, ok := sessions.get(tokenHash); ok {
-		return cached, nil
+	// europe1・america1 から転送されたリクエストのセッションは覚えない。ログアウトやログインの置き換えは送り元の台で起き、この台では忘れられない
+	cacheable := c.Request().Header.Get(proxiedRegionHeader) == ""
+	if cacheable {
+		if cached, ok := sessions.get(tokenHash); ok {
+			return cached, nil
+		}
 	}
 	var session Session
 	err := db.GetContext(c.Request().Context(), &session, `
@@ -64,7 +68,9 @@ func getSessionFromHeader(c *echo.Context, db *sqlx.DB) (*Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get session: %w", err)
 	}
-	sessions.set(&session)
+	if cacheable {
+		sessions.set(&session)
+	}
 	return &session, nil
 }
 

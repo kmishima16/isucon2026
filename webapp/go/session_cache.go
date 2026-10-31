@@ -21,7 +21,7 @@ type sessionCache struct {
 	entries map[string]sessionCacheEntry
 }
 
-// sessions は ISUREAL_SESSION_CACHE=1 の台（europe1・america1）でだけ使う。asia1 と asia2 の間は往復 0.4ms で、覚える得が無い
+// sessions は ISUREAL_SESSION_CACHE=1 の台でだけ使う。europe1・america1 は往復を省くため、asia1 は asia2 の DB の CPU を空けるため（セッションの確認が 1 走行で約 4.2 万回）
 var sessions *sessionCache
 
 func configureSessionCache() {
