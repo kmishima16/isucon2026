@@ -33,3 +33,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-143711	570343a	true	58319	fix: deploy の疎通確認をアプリの /internal/health で行う（nginx の無い asia2 でもアプリを動かすので、nginx の index.html では確かめられない） (#16)	asia2 のアプリが asia の 3 分の 1 を受け、asia1 の CPU が空き、asia の人数が増える。asia2 の DB の空き（前は id 48%）が減る	
 20261031-144350	a8ed3c6	true	81218	perf: asia1 の nginx が画像のアップロードと応答を一時ファイルに書かないようにする (#16)	asia1 の nginx が一時ファイルを書かなくなり、asia1 のディスク待ち（前は 23%）と投稿・プロフィール画像の応答が下がる	
 20261031-144722	6d95258	false	0	perf: 画像の取得は asia1 だけで受け、初期データの画像を asia1 のディスクから返す (#16)	55s〜1m0s のエラー率 897/3865 が上限 10% を超えて fail（画像の取得を asia1 だけで受けた回）	
+20261031-145153	1c713a9	true	88333	fix: 全台のアプリに GOMEMLIMIT を付け、asia1 の OOM による 502 を防ぐ (#16)	GOMEMLIMIT で asia1 のアプリが 1500MiB の近くで止まり、OOM が起きない。画像の取得を asia1 だけで受け、asia2 の DB の画像の読み込みが減る	
