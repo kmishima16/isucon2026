@@ -40,13 +40,15 @@ func deleteImageObject(ctx context.Context, tx *sqlx.Tx, imageID string) error {
 type imageOwnerKey struct {
 	SecretKeyHash string    `db:"secret_key_hash"`
 	CreatedAt     time.Time `db:"created_at"`
+	// 中身を持つ台の内部の窓口。空なら中身は DB にある（image_store.go）
+	Host *string `db:"host"`
 }
 
 // 持ち主が active な画像の、持ち主の鍵と区画の時刻を返す
 func getImageOwnerKey(ctx context.Context, db sqlx.QueryerContext, imageID string) (imageOwnerKey, error) {
 	var row imageOwnerKey
 	err := sqlx.GetContext(ctx, db, &row, `
-  SELECT u.secret_key_hash, i.created_at
+  SELECT u.secret_key_hash, i.created_at, (SELECT host FROM image_object_locations WHERE id = $1) AS host
   FROM image_objects i JOIN users u ON u.id = i.owner_user_id
   WHERE i.id = $1 AND u.status = 'active'
     AND i.created_at = (SELECT created_at FROM image_object_locations WHERE id = $1)
@@ -55,7 +57,7 @@ func getImageOwnerKey(ctx context.Context, db sqlx.QueryerContext, imageID strin
 		return row, err
 	}
 	err = sqlx.GetContext(ctx, db, &row, `
-  SELECT u.secret_key_hash, i.created_at
+  SELECT u.secret_key_hash, i.created_at, NULL::text AS host
   FROM image_objects i JOIN users u ON u.id = i.owner_user_id
   WHERE i.id = $1 AND u.status = 'active'
  `, imageID)

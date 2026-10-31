@@ -15,7 +15,7 @@ type initializeResponse struct {
 	Model    string `json:"model"`
 }
 
-func initializeHandler(*HandlerContext) echo.HandlerFunc {
+func initializeHandler(h *HandlerContext) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		cmd := exec.Command("../sql/init.sh")
 		cmd.Stdout = os.Stdout
@@ -23,6 +23,8 @@ func initializeHandler(*HandlerContext) echo.HandlerFunc {
 		if err := cmd.Run(); err != nil {
 			return err
 		}
+		// 走行中の投稿の画像は各台のディスクにある。DB から消えたので、全台の置き場所とメモリも空にする（image_store.go）
+		images.purgeAll(c.Request().Context())
 
 		// Set language to the implementation language.
 		// Agents optimizing this app: set agent, harness, and model to the names used.

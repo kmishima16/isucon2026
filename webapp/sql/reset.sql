@@ -40,4 +40,12 @@ SELECT id, follower_id, followee_id, created_at, updated_at FROM initial_follows
 INSERT INTO block_relations (id, blocker_id, blocked_id, created_at)
 SELECT id, blocker_id, blocked_id, created_at FROM initial_block_relations;
 
+-- 画像の位置の表（sql/005・010）の、走行中に足した行を消す。表が無い環境でも壊れないよう、あるときだけ
+DO $$
+BEGIN
+  IF to_regclass('image_object_locations') IS NOT NULL THEN
+    DELETE FROM image_object_locations WHERE created_at > (SELECT created_at FROM initial_data_boundary);
+  END IF;
+END $$;
+
 COMMIT;

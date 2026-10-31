@@ -89,6 +89,11 @@ func createPostHandler(h *HandlerContext) echo.HandlerFunc {
 		ctx := c.Request().Context()
 		userID := GetSession(c).UserID
 		// 手順は sql/007_create_post_function.sql の関数にまとめ、DB とは 1 往復で済ませる（遠い台では 1 往復 100ms かかる）
+		// 中身は先にこの台のディスクに確定させ、DB には中身を空にした行と、中身を持つ台だけを書く（image_store.go）
+		imageID := uuid.NewString()
+		if err := images.write(imageID, imageData); err != nil {
+			return err
+		}
 		postedAt := time.Now().UTC()
 		var created PostWithAuthor
 		err = h.DB.GetContext(ctx, &created, `
@@ -99,9 +104,12 @@ func createPostHandler(h *HandlerContext) echo.HandlerFunc {
           o_u_id AS "author.id", o_u_username AS "author.username", o_u_secret_key_hash AS "author.secret_key_hash",
           o_u_display_name AS "author.display_name", o_u_bio AS "author.bio", o_u_profile_image_id AS "author.profile_image_id",
           o_u_region AS "author.region", o_u_account_type AS "author.account_type", o_u_status AS "author.status"
-   FROM isu_create_post($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-  `, userID, uuid.NewString(), uuid.NewString(), imageData, input.Caption, input.Visibility,
-			location.Kind, location.Latitude, location.Longitude, location.Locality, postedAt)
+   FROM isu_create_post($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+  `, userID, uuid.NewString(), imageID, []byte{}, input.Caption, input.Visibility,
+			location.Kind, location.Latitude, location.Longitude, location.Locality, postedAt, images.self)
+		if err != nil {
+			images.remove(imageID)
+		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "IR409" {
 			return NewAPIError(http.StatusConflict, "post_slot_unavailable")

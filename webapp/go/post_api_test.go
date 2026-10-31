@@ -78,6 +78,8 @@ func TestCreatePostInOneRoundTrip(t *testing.T) {
 	db := sqlx.MustOpen("pgx", u.String())
 	defer db.Close()
 	db.SetMaxOpenConns(1)
+	images.dir = t.TempDir()
+	configureImageStore("asia", newImageDataCache())
 	db.MustExec(`TRUNCATE image_object_locations, realmojis, comments, posts, posting_windows, users, image_objects CASCADE`)
 	db.MustExec(`INSERT INTO users (id, username, secret_key_hash, display_name, bio, region) VALUES
 	  ('u1', 'u1', $1, 'U1', 'hello', 'asia'), ('u2', 'u2', $1, 'U2', '', 'europe'), ('gone', 'gone', $1, 'G', '', 'asia')`, strings.Repeat("0", 64))

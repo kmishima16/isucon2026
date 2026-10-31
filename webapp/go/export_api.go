@@ -38,23 +38,33 @@ func exportPostsHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		var posts []struct {
 			Post
-			ImageData []byte `db:"image_data"`
+			ImageData []byte  `db:"image_data"`
+			ImageHost *string `db:"image_host"`
 		}
 		// image_objects は created_at の月で分けてあり、id だけでは全区画を引く。投稿の画像は posted_at で書くので区画を 1 つに絞れる
 		if err := h.DB.SelectContext(ctx, &posts, `
-   SELECT `+postColumns+`, CASE WHEN i.id = ANY($2) THEN NULL ELSE i.data END AS image_data
+   SELECT `+postColumns+`, CASE WHEN i.id = ANY($2) THEN NULL ELSE i.data END AS image_data, l.host AS image_host
    FROM posts p
    JOIN posting_windows w ON w.id = p.posting_window_id
    JOIN image_objects i ON i.id = p.image_id AND i.created_at = p.posted_at
+   LEFT JOIN image_object_locations l ON l.id = p.image_id
    WHERE p.author_id = $1 AND p.deleted_at IS NULL
    ORDER BY p.posted_at, p.id
   `, userID, cachedIDs); err != nil {
 			return err
 		}
 		for i := range posts {
-			if data, ok := cached[posts[i].ImageID]; ok {
+			switch data, ok := cached[posts[i].ImageID]; {
+			case ok:
 				posts[i].ImageData = data
-			} else {
+			case posts[i].ImageHost != nil:
+				// 走行中の投稿の画像は、投稿を受けた台のディスクにある（image_store.go）
+				loaded, err := images.load(ctx, *posts[i].ImageHost, posts[i].ImageID)
+				if err != nil {
+					return err
+				}
+				posts[i].ImageData = loaded
+			default:
 				h.ImageData.set(posts[i].ImageID, posts[i].ImageData)
 			}
 		}

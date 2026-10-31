@@ -26,6 +26,15 @@ func newImageDataCache() *ImageDataCache {
 	return &ImageDataCache{items: make(map[string]*list.Element), order: list.New()}
 }
 
+// reset は中身をすべて捨てる（初期化）
+func (c *ImageDataCache) reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.items = make(map[string]*list.Element)
+	c.order.Init()
+	c.bytes = 0
+}
+
 func (c *ImageDataCache) get(id string) ([]byte, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

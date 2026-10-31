@@ -71,6 +71,7 @@ func NewSignerHandler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(signResponse{Sigs: signAll(keys, req.Items, req.Exp)})
 	})
+	registerImageStoreHandlers(mux)
 	return mux
 }
 
