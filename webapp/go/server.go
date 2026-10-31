@@ -2,6 +2,7 @@ package isureal
 
 import (
 	"os"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5"
@@ -37,6 +38,8 @@ func NewServer(config *Config) *echo.Echo {
 	db.SetMaxOpenConns(30)
 	// 既定では待機させる接続が 2 本だけで、負荷の山のたびに残りを閉じては張り直していた（PostgreSQL のプロセスの起動と認証が毎回 DB の CPU を使い、遠い台では往復も重なる）
 	db.SetMaxIdleConns(30)
+	// 3 台が 30 本ずつ持ち続けると max_connections 100 の残りが数本になり、初期化の psql が too many clients で落ちうる。空いた接続は 1 分で返す
+	db.SetConnMaxIdleTime(1 * time.Minute)
 	err = db.Ping()
 	if err != nil {
 		panic("failed to ping database: " + err.Error())
