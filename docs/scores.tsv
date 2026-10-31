@@ -41,3 +41,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-162559	55042b9	true	91969	perf: 友達申請の承認・拒否・取り下げとフォローを DB の関数 1 往復にし、europe・america の新しい人の投稿を間に合わせる	europe・america の承認とフォローが 1 往復になり、新しい人が間に合って翌日も増える	
 20261031-163117	e0cabdd	true	57161	perf: 友達フィードの DB の往復を 6 回から 2 回にまとめる (#11)	europe・america のセッションの写しと友達フィードの往復まとめで、新しい人が増える	
 20261031-163500	b325802	true	97440	Revert "perf: 友達フィードの DB の往復を 6 回から 2 回にまとめる (#11)"	友達フィードの往復まとめを戻し、asia の新しい人が投稿に間に合う。europe・america のセッションの写しは残す	
+20261031-163950	7d77e98	true	96689	perf: europe1・america1 で SQL ごとの文の準備の往復を省き、DB の接続を閉じずに起動時に開いておく (#12)	検索のブロックを SQL で外し、europe1・america1 の文の準備の往復を省いて、europe・america の新しい人が増える	
