@@ -8,7 +8,9 @@
 - 順番は、server/ の設定ファイル → アプリの転送とビルド → sql/*.sql の適用 → サービスの再起動と疎通確認。
 - 変わった設定ファイルだけを置き換え、元のファイルを /var/backups/isu-deploy/<時刻>-<rev>/ に退避する。
 - nginx -t の失敗・nginx の reload の失敗・MySQL の起動失敗を見つけると、自動で元の設定に戻して止まる。
-- 複数台で役割を分けるときは、止める台のサービスを `systemctl disable --now` しておく（isu.env の `SETUP_CMD` に書く）。disable の nginx・MySQL には、設定を配っても reload・restart しない（nginx -t だけは行う）。enable のまま落ちているものは起こすので、落ちた設定を直して deploy すれば戻る。
+- PostgreSQL は、restart せずに reload だけを行う。reload の前に `pg_file_settings` で設定ファイルの誤りを確かめ、誤りがあれば元の設定に戻して止まる。restart が要る項目（`shared_buffers`・`shared_preload_libraries` など）の変更は警告だけを出すので、手で `sudo systemctl restart postgresql` する。PostgreSQL に問い合わせられないとき（落ちているとき）は、確かめられないので止まる。
+- 複数台で役割を分けるときは、止める台のサービスを `systemctl disable --now` しておく（isu.env の `SETUP_CMD` に書く）。disable の nginx・MySQL・PostgreSQL には、設定を配っても reload・restart しない（nginx -t だけは行う）。enable のまま落ちている nginx・MySQL は起こすので、落ちた設定を直して deploy すれば戻る。
+- リポジトリで消した設定ファイルは、サーバーからは消えない。設定を外すときは、ファイルを残して中身の値で外す（例：PostgreSQL の計測は `make measure-off` が値を書き換える）。
 - 疎通確認は、`APP_HOSTS` の各台で `HEALTH_URL` を叩く。nginx を止めた台が `APP_HOSTS` にいるなら、`HEALTH_URL` をアプリのポート（例：`http://localhost:8080/`）に向ける。
 - ネットワーク・ssh・権限まわりのファイル（etc/ssh・netplan・hosts・ufw・sudoers など）は配らない。外から入れなくなるのを防ぐため。
 - ビルドや疎通確認に失敗したら止まる。古いバイナリのままベンチするのを防ぐため。

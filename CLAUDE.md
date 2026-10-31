@@ -75,5 +75,5 @@ issue では（GitHub から読むので、手元のパスや行番号は見え�
 - 道具（キットのスクリプト）が問題に合わない → まず isu.env と server/ で吸収する。スクリプトを直すのは、操作役の手順が止まっていて、10 分ほどで直せるときだけ。それ以外は手で回避する。気付いたことは、本番中は `logs/kit-notes.md` に一行で控え、終わってから isucon-kit の issue にする。道具ごとの置き換えは docs/flow/contest.md の「道具が使えないとき」。
 - ssh がつながらない → 人間に伝える（IP 変更なら人間が `isuenv ssh <環境名>` を実行する）。
 - 戻したい → `make best` で良かったコミットを探し、`make deploy REV=<rev>`。
-- 設定が壊れていた場合、nginx / MySQL は deploy が自動で元に戻している（退避先は `/var/backups/isu-deploy/`）。
+- 設定が壊れていた場合、nginx / MySQL / PostgreSQL は deploy が自動で元に戻している（退避先は `/var/backups/isu-deploy/`）。PostgreSQL は reload だけで、restart が要る設定は警告が出たら手で restart する。
 - DB を別サーバーに分けるとき：MySQL の `bind-address`、ユーザーの接続元ホスト（`'%'`）、アプリの接続先を private IP に。
