@@ -22,6 +22,8 @@ type HandlerContext struct {
 	IPBans    *IPBanList
 	ImageData *ImageDataCache
 	Windows   *PostingWindowHub
+	// 利用者の写しで検索する台だけ（search_snapshot.go）
+	SearchUsers *searchSnapshot
 }
 
 func NewServer(config *Config) *echo.Echo {
@@ -74,6 +76,10 @@ func NewServer(config *Config) *echo.Echo {
 	// asia1 の署名の計算を europe1・america1 に頼む（image_signer.go）。ほかの台では nil
 	imageSigner = newRemoteSigner(signerPeersForRegion(config.Region))
 	go handlerContext.Windows.poll(db, config.Region)
+	if searchUsersInMemory {
+		handlerContext.SearchUsers = newSearchSnapshot()
+		go handlerContext.SearchUsers.refreshLoop(db)
+	}
 	localWindowHub.Store(handlerContext.Windows)
 	configureImageStore(config.Region, handlerContext.ImageData)
 	configureSessionCache()

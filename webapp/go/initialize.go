@@ -27,6 +27,10 @@ func initializeHandler(h *HandlerContext) echo.HandlerFunc {
 		if err := fillSearchTexts(c.Request().Context(), h.DB); err != nil {
 			return err
 		}
+		// 初期化は利用者の行の updated_at を古い値に戻すので、検索の写しを持つ台に読み直させる（search_snapshot.go）
+		if _, err := h.DB.ExecContext(c.Request().Context(), `UPDATE app_generation SET n = n + 1 WHERE id = 1`); err != nil {
+			return err
+		}
 		// 走行中の投稿の画像は各台のディスクにある。DB から消えたので、全台の置き場所とメモリも空にする（image_store.go）
 		images.purgeAll(c.Request().Context())
 

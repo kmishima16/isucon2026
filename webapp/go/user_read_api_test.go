@@ -146,6 +146,9 @@ func TestSearchUsersMatchesReference(t *testing.T) {
 		idOf(10), idOf(42), idOf(11), idOf(43), idOf(20), idOf(21))
 
 	h := &HandlerContext{DB: db, Config: &Config{Region: "asia"}}
+	if searchUsersInMemory {
+		h.SearchUsers = newSearchSnapshot()
+	}
 	e := echo.New()
 	e.HTTPErrorHandler = APIErrorHandler
 	asViewer := func(next echo.HandlerFunc) echo.HandlerFunc {

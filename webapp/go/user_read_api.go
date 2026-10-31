@@ -148,8 +148,15 @@ func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 		const limit = 51
 		matched := make([]User, 0, 51)
 		beforeUsername, beforeID := input.BeforeUsername, input.BeforeID
+		if h.SearchUsers != nil {
+			// 利用者の写しで照合する（search_snapshot.go）
+			var err error
+			if matched, err = h.SearchUsers.search(ctx, h.DB, viewer, query, beforeUsername, beforeID, limit); err != nil {
+				return err
+			}
+		}
 	scan:
-		for {
+		for h.SearchUsers == nil {
 			users, err := selectSearchUsers(ctx, h.DB, viewer, query, limit, beforeUsername, beforeID)
 			if err != nil {
 				return err
