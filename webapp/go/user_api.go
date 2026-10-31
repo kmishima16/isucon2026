@@ -125,30 +125,23 @@ func loginHandler(h *HandlerContext) echo.HandlerFunc {
 			return NewAPIError(http.StatusUnauthorized, "invalid_credentials")
 		}
 		ctx := c.Request().Context()
-		tx, err := h.DB.BeginTxx(ctx, nil)
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
+		hash := sha256.Sum256([]byte(input.SecretKey))
+		token := uuid.NewString()
+		tokenHash := sha256.Sum256([]byte(token))
+		// 手順は sql/009_login_function.sql の関数にまとめ、DB とは 1 往復で済ませる（遠い台では 1 往復 100ms かかる）
 		var user User
-		err = tx.GetContext(ctx, &user, `SELECT id, username, secret_key_hash, display_name, bio, profile_image_id, region, account_type, status FROM users WHERE username = $1 FOR NO KEY UPDATE`, input.Username)
+		err := h.DB.GetContext(ctx, &user, `
+   SELECT o_id AS id, o_username AS username, o_secret_key_hash AS secret_key_hash, o_display_name AS display_name,
+          o_bio AS bio, o_profile_image_id AS profile_image_id, o_region AS region, o_account_type AS account_type, o_status AS status
+   FROM isu_login($1, $2, $3, $4)
+  `, input.Username, hex.EncodeToString(hash[:]), uuid.NewString(), hex.EncodeToString(tokenHash[:]))
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewAPIError(http.StatusUnauthorized, "invalid_credentials")
 		}
 		if err != nil {
 			return err
 		}
-		hash := sha256.Sum256([]byte(input.SecretKey))
-		if user.Status != "active" || user.SecretKeyHash != hex.EncodeToString(hash[:]) {
-			return NewAPIError(http.StatusUnauthorized, "invalid_credentials")
-		}
-		session, err := createLoginSessionTx(ctx, tx, user.ID)
-		if err != nil {
-			return err
-		}
-		if err := tx.Commit(); err != nil {
-			return err
-		}
+		session := &Session{Token: token}
 		return c.JSON(http.StatusOK, loginResponse{Token: session.Token, User: newSessionUserResponse(user)})
 	}
 }
