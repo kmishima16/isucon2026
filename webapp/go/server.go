@@ -52,6 +52,8 @@ func NewServer(config *Config) *echo.Echo {
 		ImageData: newImageDataCache(),
 		Windows:   newPostingWindowHub(),
 	}
+	// asia1 の署名の計算を europe1・america1 に頼む（image_signer.go）。ほかの台では nil
+	imageSigner = newRemoteSigner(signerPeersForRegion(config.Region))
 	go handlerContext.Windows.poll(db, config.Region)
 	e.Use(IPBanMiddleware(handlerContext))
 

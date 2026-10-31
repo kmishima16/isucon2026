@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -48,6 +49,57 @@ const signatureCacheLimit = 500000
 
 var signedURLCache = &signatureCache{}
 
+// 応答が署名しようとしている画像。まとめて europe1・america1 に頼むときの単位（image_signer.go）
+type signJob struct {
+	Key     []byte
+	ImageID string
+}
+
+// この台で署名を計算した回数。取り寄せた署名で計算が消えたかを、テストで確かめるため
+var signatureComputations atomic.Int64
+
+func (c *signatureCache) peek(key []byte, imageID string, exp int64) (string, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.exp != exp {
+		return "", false
+	}
+	sig, ok := c.sigs[string(key)+imageID]
+	return sig, ok
+}
+
+// ほかの台で計算した署名を入れる。古い 1 時間の分が遅れて届いても、今の分を捨てないよう入れない
+func (c *signatureCache) putMany(jobs []signJob, sigs []string, exp int64) {
+	if len(jobs) != len(sigs) {
+		return
+	}
+	raws := make([][]byte, len(sigs))
+	for i, sig := range sigs {
+		raw, err := base64.RawURLEncoding.DecodeString(sig)
+		if err != nil || len(raw) != sha256.Size {
+			return
+		}
+		raws[i] = raw
+	}
+	c.mu.Lock()
+	if c.exp > exp {
+		c.mu.Unlock()
+		return
+	}
+	if c.exp != exp || len(c.sigs)+len(jobs) > signatureCacheLimit {
+		c.exp = exp
+		c.sigs = make(map[string]string)
+	}
+	for i, job := range jobs {
+		// 画像の取得の検証は正規の表記しか通さないので、受け取った文字列ではなく、バイト列から作り直した表記を入れる
+		c.sigs[string(job.Key)+job.ImageID] = base64.RawURLEncoding.EncodeToString(raws[i])
+	}
+	c.mu.Unlock()
+	for i, job := range jobs {
+		verifiedImageSignatures.add(verifiedSignatureKey(job.Key, job.ImageID, exp, raws[i]), exp)
+	}
+}
+
 func (c *signatureCache) get(key []byte, imageID string, exp int64) string {
 	cacheKey := string(key) + imageID
 	c.mu.Lock()
@@ -58,6 +110,7 @@ func (c *signatureCache) get(key []byte, imageID string, exp int64) string {
 		}
 	}
 	c.mu.Unlock()
+	signatureComputations.Add(1)
 	raw := imageSignature(key, imageID, exp)
 	// この台が出した URL はこの台に取りに来るので、検証でもう一度 1000 回計算しないよう、通る署名として覚えておく
 	verifiedImageSignatures.add(verifiedSignatureKey(key, imageID, exp, raw), exp)

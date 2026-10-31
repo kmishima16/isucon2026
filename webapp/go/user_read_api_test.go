@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5"
@@ -213,5 +214,62 @@ func TestSearchUsersMatchesReference(t *testing.T) {
 		{"q": {strings.Repeat("あ", 101)}},
 	} {
 		compare(params)
+	}
+}
+
+// ISUREAL_TEST_DSN に空の DB（001-schema.sql と sql/*.sql を流したもの）を渡したときだけ動く
+func TestSearchUsersPrefetchesSignatures(t *testing.T) {
+	dsn := os.Getenv("ISUREAL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("ISUREAL_TEST_DSN is not set")
+	}
+	db := sqlx.MustOpen("pgx", dsn)
+	defer db.Close()
+	db.MustExec(`TRUNCATE follows, friendships, friend_requests, block_relations, users CASCADE`)
+	db.MustExec(`INSERT INTO users (id, username, secret_key_hash, display_name, region) VALUES ('viewer', 'viewer', $1, 'Viewer', 'asia')`, strings.Repeat("2", 64))
+	for i := 1; i <= 20; i++ {
+		id := fmt.Sprintf("u%02d", i)
+		sum := sha256.Sum256([]byte(id))
+		db.MustExec(`INSERT INTO users (id, username, secret_key_hash, display_name, profile_image_id, region) VALUES ($1, $2, $3, $4, $5, 'asia')`,
+			id, "taro_"+id, hex.EncodeToString(sum[:]), id, "pimg-"+id)
+	}
+	h := &HandlerContext{DB: db, Config: &Config{Region: "asia"}}
+	e := echo.New()
+	e.HTTPErrorHandler = APIErrorHandler
+	e.GET("/api/users", searchUsersHandler(h), func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			c.Set("session", &Session{UserID: "viewer", Region: "asia"})
+			return next(c)
+		}
+	})
+	search := func() (string, int64) {
+		signedURLCache = &signatureCache{}
+		before := signatureComputations.Load()
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/users?q=taro", nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("search: %d %s", rec.Code, rec.Body.String())
+		}
+		return rec.Body.String(), signatureComputations.Load() - before
+	}
+	hour := imageURLExp(time.Now())
+	imageSigner = nil
+	local, localCount := search()
+	if localCount != 20 {
+		t.Fatalf("local signing = %d, want 20", localCount)
+	}
+	srv := httptest.NewServer(NewSignerHandler())
+	defer srv.Close()
+	imageSigner = &remoteSigner{peers: []string{srv.URL}, client: srv.Client(), timeout: 5 * time.Second, minBatch: 1}
+	defer func() { imageSigner = nil }()
+	remote, remoteCount := search()
+	if imageURLExp(time.Now()) != hour {
+		t.Skip("crossed an hour boundary; URLs differ by design")
+	}
+	if remoteCount != 0 {
+		t.Fatalf("signed %d images locally after prefetch", remoteCount)
+	}
+	if local != remote {
+		t.Fatal("search differs with and without the remote signer")
 	}
 }

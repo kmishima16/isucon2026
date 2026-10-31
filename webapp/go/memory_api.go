@@ -88,6 +88,16 @@ func listMemories(ctx context.Context, db sqlx.QueryerContext, userID string, st
 	if response.HasMore {
 		posts = posts[:50]
 	}
+	postIDs := make([]string, len(posts))
+	for i := range posts {
+		postIDs[i] = posts[i].ID
+	}
+	reactions, comments, err := selectMemoryInteractions(ctx, db, postIDs)
+	if err != nil {
+		return response, err
+	}
+	// 署名する画像を先に集め、europe1・america1 にまとめて頼む（image_signer.go）。asia1 の CPU の 3 割が Memories の署名だった
+	prefetchImageSignatures(ctx, memorySignJobs(posts, reactions, comments))
 	items := make([]memoryPostResponse, 0, len(posts))
 	for _, post := range posts {
 		items = append(items, memoryPostResponse{
@@ -96,31 +106,65 @@ func listMemories(ctx context.Context, db sqlx.QueryerContext, userID string, st
 			Comments:           make([]createCommentResponse, 0),
 		})
 	}
-	if err := loadMemoryInteractions(ctx, db, items); err != nil {
-		return response, err
-	}
+	attachMemoryInteractions(items, reactions, comments)
 	response.Items = items
 	return response, nil
 }
 
-func loadMemoryInteractions(ctx context.Context, db sqlx.QueryerContext, items []memoryPostResponse) error {
-	if len(items) == 0 {
-		return nil
+func selectMemoryInteractions(ctx context.Context, db sqlx.QueryerContext, postIDs []string) ([]RealMojiWithReactor, []CommentWithAuthor, error) {
+	if len(postIDs) == 0 {
+		return nil, nil, nil
 	}
-	postIDs := make([]string, len(items))
-	itemByPostID := make(map[string]*memoryPostResponse, len(items))
-	for i := range items {
-		postIDs[i] = items[i].ID
-		itemByPostID[items[i].ID] = &items[i]
-	}
-
 	query, args, err := sqlx.In(`AND r.post_id IN (?) ORDER BY r.created_at DESC, r.id DESC`, postIDs)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 	reactions, err := selectCurrentRealMojis(ctx, db, sqlx.Rebind(sqlx.DOLLAR, query), args...)
 	if err != nil {
-		return err
+		return nil, nil, err
+	}
+	query, args, err = sqlx.In(`AND c.post_id IN (?) ORDER BY c.created_at, c.id`, postIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+	comments, err := selectCommentsWithAuthor(ctx, db, sqlx.Rebind(sqlx.DOLLAR, query), args...)
+	if err != nil {
+		return nil, nil, err
+	}
+	return reactions, comments, nil
+}
+
+// 組み立てで署名する画像と同じものを、同じ上限（1 投稿に RealMoji・コメント 50 件まで）で集める
+func memorySignJobs(posts []PostWithAuthor, reactions []RealMojiWithReactor, comments []CommentWithAuthor) []signJob {
+	jobs := make([]signJob, 0, len(posts)*2+len(reactions)*2+len(comments))
+	for _, post := range posts {
+		jobs = append(jobs, signJob{Key: post.Author.ImageKey, ImageID: post.ImageID})
+		jobs = appendProfileImageJob(jobs, post.Author)
+	}
+	reactionCount := make(map[string]int, len(posts))
+	for _, reaction := range reactions {
+		if reactionCount[reaction.PostID] >= 50 {
+			continue
+		}
+		reactionCount[reaction.PostID]++
+		jobs = append(jobs, signJob{Key: reaction.Reactor.ImageKey, ImageID: reaction.ImageID})
+		jobs = appendProfileImageJob(jobs, reaction.Reactor)
+	}
+	commentCount := make(map[string]int, len(posts))
+	for _, comment := range comments {
+		if commentCount[comment.PostID] >= 50 {
+			continue
+		}
+		commentCount[comment.PostID]++
+		jobs = appendProfileImageJob(jobs, comment.Author)
+	}
+	return jobs
+}
+
+func attachMemoryInteractions(items []memoryPostResponse, reactions []RealMojiWithReactor, comments []CommentWithAuthor) {
+	itemByPostID := make(map[string]*memoryPostResponse, len(items))
+	for i := range items {
+		itemByPostID[items[i].ID] = &items[i]
 	}
 	for _, reaction := range reactions {
 		item := itemByPostID[reaction.PostID]
@@ -128,20 +172,10 @@ func loadMemoryInteractions(ctx context.Context, db sqlx.QueryerContext, items [
 			item.RealMojis = append(item.RealMojis, newRealMojiResponse(reaction.RealMoji, reaction.Reactor))
 		}
 	}
-
-	query, args, err = sqlx.In(`AND c.post_id IN (?) ORDER BY c.created_at, c.id`, postIDs)
-	if err != nil {
-		return err
-	}
-	comments, err := selectCommentsWithAuthor(ctx, db, sqlx.Rebind(sqlx.DOLLAR, query), args...)
-	if err != nil {
-		return err
-	}
 	for _, comment := range comments {
 		item := itemByPostID[comment.PostID]
 		if len(item.Comments) < 50 {
 			item.Comments = append(item.Comments, newCommentResponse(comment.Comment, comment.Author))
 		}
 	}
-	return nil
 }

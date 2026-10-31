@@ -118,17 +118,21 @@ func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 				return err
 			}
 			byID := make(map[string]User, len(users))
-			for _, user := range users {
-				byID[user.ID] = user
+			jobs := make([]signJob, 0, len(users))
+			for i := range users {
+				if err := users[i].setImageKey(); err != nil {
+					return err
+				}
+				byID[users[i].ID] = users[i]
+				jobs = appendProfileImageJob(jobs, users[i])
 			}
+			// 結果のプロフィール画像の署名を、europe1・america1 にまとめて頼む（image_signer.go）
+			prefetchImageSignatures(ctx, jobs)
 			for _, id := range ids {
 				// 2 回の読み取りの間に退会したユーザーは出さない
 				user, ok := byID[id]
 				if !ok {
 					continue
-				}
-				if err := user.setImageKey(); err != nil {
-					return err
 				}
 				if user.AccountType != "certified_public" {
 					user.Bio = ""

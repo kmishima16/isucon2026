@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -124,6 +125,98 @@ func TestSignedImageURLVerifiesWithRoundedExp(t *testing.T) {
 	sig, err := base64.RawURLEncoding.DecodeString(u.Query().Get("sig"))
 	if err != nil || !verifyImageSignature(testSigningKey, id, exp, sig) {
 		t.Fatal("signed url does not verify")
+	}
+}
+
+func TestSignatureCachePeekAndPutMany(t *testing.T) {
+	c := &signatureCache{}
+	id := "777d5e88-9eb9-4084-ac7d-b4c3743ff421"
+	exp := int64(1793523600)
+	if _, ok := c.peek(testSigningKey, id, exp); ok {
+		t.Fatal("empty cache returned a signature")
+	}
+	sig := base64.RawURLEncoding.EncodeToString(referenceImageSignature(testSigningKey, id, exp))
+	c.putMany([]signJob{{Key: testSigningKey, ImageID: id}}, []string{sig}, exp)
+	got, ok := c.peek(testSigningKey, id, exp)
+	if !ok || got != sig {
+		t.Fatal("putMany did not store the signature")
+	}
+	before := signatureComputations.Load()
+	if c.get(testSigningKey, id, exp) != sig {
+		t.Fatal("get returned another signature")
+	}
+	if signatureComputations.Load() != before {
+		t.Fatal("get recomputed a signature that was put")
+	}
+	raw, _ := base64.RawURLEncoding.DecodeString(sig)
+	if !verifiedImageSignatures.contains(verifiedSignatureKey(testSigningKey, id, exp, raw)) {
+		t.Fatal("put signature is not remembered for verify")
+	}
+}
+
+func TestSignatureCacheGetCountsComputations(t *testing.T) {
+	c := &signatureCache{}
+	before := signatureComputations.Load()
+	c.get(testSigningKey, "count-me", 1793523600)
+	c.get(testSigningKey, "count-me", 1793523600)
+	if got := signatureComputations.Load() - before; got != 1 {
+		t.Fatalf("computations = %d, want 1", got)
+	}
+}
+
+func TestSignatureCachePutManyIgnoresOlderExpAndBadInput(t *testing.T) {
+	c := &signatureCache{}
+	id := "777d5e88-9eb9-4084-ac7d-b4c3743ff421"
+	exp := int64(1793523600)
+	sig := base64.RawURLEncoding.EncodeToString(referenceImageSignature(testSigningKey, id, exp))
+	c.putMany([]signJob{{Key: testSigningKey, ImageID: id}}, []string{sig}, exp)
+
+	older := exp - 3600
+	oldSig := base64.RawURLEncoding.EncodeToString(referenceImageSignature(testSigningKey, "late", older))
+	c.putMany([]signJob{{Key: testSigningKey, ImageID: "late"}}, []string{oldSig}, older)
+	if _, ok := c.peek(testSigningKey, id, exp); !ok {
+		t.Fatal("a late batch for an older hour reset the cache")
+	}
+	if _, ok := c.peek(testSigningKey, "late", older); ok {
+		t.Fatal("a late batch for an older hour was stored")
+	}
+
+	c.putMany([]signJob{{Key: testSigningKey, ImageID: "bad"}}, []string{"not base64!"}, exp)
+	if _, ok := c.peek(testSigningKey, "bad", exp); ok {
+		t.Fatal("stored a malformed signature")
+	}
+	c.putMany([]signJob{{Key: testSigningKey, ImageID: "short"}}, []string{"AAAA"}, exp)
+	if _, ok := c.peek(testSigningKey, "short", exp); ok {
+		t.Fatal("stored a signature of the wrong length")
+	}
+	c.putMany([]signJob{{Key: testSigningKey, ImageID: "y"}, {Key: testSigningKey, ImageID: "z"}}, []string{sig}, exp)
+	if _, ok := c.peek(testSigningKey, "y", exp); ok {
+		t.Fatal("stored signatures when the counts differ")
+	}
+
+	newer := exp + 3600
+	newSig := base64.RawURLEncoding.EncodeToString(referenceImageSignature(testSigningKey, id, newer))
+	c.putMany([]signJob{{Key: testSigningKey, ImageID: id}}, []string{newSig}, newer)
+	if got, ok := c.peek(testSigningKey, id, newer); !ok || got != newSig {
+		t.Fatal("a batch for a newer hour was not stored")
+	}
+}
+
+func TestSignatureCachePutManyStoresCanonicalEncoding(t *testing.T) {
+	c := &signatureCache{}
+	id := "777d5e88-9eb9-4084-ac7d-b4c3743ff421"
+	exp := int64(1793523600)
+	canonical := base64.RawURLEncoding.EncodeToString(referenceImageSignature(testSigningKey, id, exp))
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+	last := strings.IndexByte(alphabet, canonical[len(canonical)-1])
+	// 43 文字目の下位 2 ビットは使われない。立てても寛容な復号では同じバイト列になるが、画像の取得の検証は正規の表記以外を拒む
+	loose := canonical[:len(canonical)-1] + string(alphabet[last|1])
+	if loose == canonical {
+		loose = canonical[:len(canonical)-1] + string(alphabet[last|2])
+	}
+	c.putMany([]signJob{{Key: testSigningKey, ImageID: id}}, []string{loose}, exp)
+	if got, ok := c.peek(testSigningKey, id, exp); ok && got != canonical {
+		t.Fatalf("stored a non-canonical signature %q, want %q or nothing", got, canonical)
 	}
 }
 

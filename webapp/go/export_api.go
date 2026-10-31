@@ -58,6 +58,12 @@ func exportPostsHandler(h *HandlerContext) echo.HandlerFunc {
 				h.ImageData.set(posts[i].ImageID, posts[i].ImageData)
 			}
 		}
+		// 署名する画像を先に集め、europe1・america1 にまとめて頼む（image_signer.go）。asia1 の CPU の 2 割がエクスポートの署名だった
+		jobs := appendProfileImageJob(make([]signJob, 0, len(posts)+1), author)
+		for _, post := range posts {
+			jobs = append(jobs, signJob{Key: author.ImageKey, ImageID: post.ImageID})
+		}
+		prefetchImageSignatures(ctx, jobs)
 
 		var body bytes.Buffer
 		writer := zip.NewWriter(&body)
