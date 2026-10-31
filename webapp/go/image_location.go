@@ -83,11 +83,49 @@ var (
   WHERE i.id = $1 AND u.status = 'active'`
 )
 
+// 区画に分かれた image_objects を文に含めると、1 区画しか読まなくても、実行のたびに 36 区画とその索引にロックを取る（推測）。
+// asia2 の CPU が詰まる負荷の山で、画像の判定が DB の実行時間の 3 割（15761 回・85 秒）を占めていた。
+// 画像は、それを使う投稿・RealMoji・プロフィールの本人の持ち物（id はサーバーが作る。asia2 で抜き取った 1.4 万件で例外なし）なので、
+// 持ち主と生死は投稿・RealMoji・利用者の表から判定できる。種類は、どの書き込みも image/jpeg。
+// 参照が見つからない画像（差し替えで行を消したプロフィール画像など）は、今までの文で判定し直すので、結果は変わらない
+const servableImageByReference = `
+  SELECT u.secret_key_hash, l.created_at, l.host,
+    (COALESCE(u.profile_image_id = l.id, false)
+     OR EXISTS (
+       SELECT 1 FROM posts p
+       WHERE p.image_id = l.id AND p.author_id = u.id AND p.deleted_at IS NULL
+     )
+     OR EXISTS (
+       SELECT 1 FROM realmojis r
+       JOIN posts p ON p.id = r.post_id AND p.deleted_at IS NULL
+       JOIN users author ON author.id = p.author_id AND author.status = 'active'
+       WHERE r.image_id = l.id AND r.reactor_id = u.id AND r.replaced_at IS NULL AND r.deleted_at IS NULL
+     )) AS live
+  FROM image_object_locations l
+  JOIN users u ON u.id = COALESCE(
+    (SELECT p.author_id FROM posts p WHERE p.image_id = l.id LIMIT 1),
+    (SELECT r.reactor_id FROM realmojis r WHERE r.image_id = l.id LIMIT 1),
+    (SELECT x.id FROM users x WHERE x.profile_image_id = l.id LIMIT 1))
+  WHERE l.id = $1 AND u.status = 'active'`
+
 // getServableImage は、持ち主が active な画像の鍵・区画の時刻・置き場所・種類・生死と、要るなら中身を返す。
 // skipData なら中身は読まない（この台が持っている）。中身を持つ台が別にあるときも読まない
 func getServableImage(ctx context.Context, db sqlx.QueryerContext, imageID string, skipData bool) (servableImage, error) {
 	var row servableImage
-	err := sqlx.GetContext(ctx, db, &row, servableImageLocated, imageID, skipData)
+	err := sqlx.GetContext(ctx, db, &row, servableImageByReference, imageID)
+	if err == nil {
+		row.MediaType = "image/jpeg"
+		if skipData || row.Host != nil {
+			return row, nil
+		}
+		// 中身が手元にも中身を持つ台にも無い画像（初期データの RealMoji の画像の初回など）だけ、区画の表から中身を読む
+		err = sqlx.GetContext(ctx, db, &row.Data, `SELECT data FROM image_objects WHERE id = $1 AND created_at = $2`, imageID, row.CreatedAt)
+		return row, err
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return row, err
+	}
+	err = sqlx.GetContext(ctx, db, &row, servableImageLocated, imageID, skipData)
 	if !errors.Is(err, sql.ErrNoRows) {
 		return row, err
 	}
