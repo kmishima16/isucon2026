@@ -14,6 +14,8 @@ type Config struct {
 	DBPassword string
 	DBName     string
 	LogLevel   string
+	// DB まで遠い台（europe1・america1）で、文の準備の往復を省くときに exec を入れる（server.go）
+	DBExecMode string
 }
 
 func ConfigFromEnv() *Config {
@@ -25,6 +27,7 @@ func ConfigFromEnv() *Config {
 		DBPassword: envOrDefault("ISUREAL_DB_PASSWORD", "isureal"),
 		DBName:     envOrDefault("ISUREAL_DB_NAME", "isureal"),
 		LogLevel:   envOrDefault("ISUREAL_LOG_LEVEL", "debug"),
+		DBExecMode: envOrDefault("ISUREAL_DB_EXEC_MODE", ""),
 	}
 }
 
@@ -34,6 +37,9 @@ func (c *Config) DatabaseDSN() string {
 		User:   url.UserPassword(c.DBUser, c.DBPassword),
 		Host:   net.JoinHostPort(c.DBHost, c.DBPort),
 		Path:   "/" + c.DBName,
+	}
+	if c.DBExecMode != "" {
+		u.RawQuery = url.Values{"default_query_exec_mode": {c.DBExecMode}}.Encode()
 	}
 	return u.String()
 }
