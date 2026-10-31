@@ -104,9 +104,10 @@ func createPostHandler(h *HandlerContext) echo.HandlerFunc {
 			LocalDate time.Time `db:"local_date"`
 			StartsAt  time.Time `db:"starts_at"`
 		}
-		err = tx.GetContext(ctx, &window, `SELECT id, local_date, starts_at FROM posting_windows WHERE region = $1 AND ended_at IS NULL FOR UPDATE`, user.Region)
+		// 投稿期間を閉じる UPDATE とだけ衝突すればよい。FOR UPDATE だと同じリージョンの投稿どうしが順番待ちになり、DB から遠い台では投稿に数秒かかっていた。1 人 1 投稿は users の行のロックで守っている
+		err = tx.GetContext(ctx, &window, `SELECT id, local_date, starts_at FROM posting_windows WHERE region = $1 AND ended_at IS NULL FOR SHARE`, user.Region)
 		if errors.Is(err, sql.ErrNoRows) {
-			err = tx.GetContext(ctx, &window, `SELECT id, local_date, starts_at FROM posting_windows WHERE region = $1 AND ended_at IS NULL FOR UPDATE`, user.Region)
+			err = tx.GetContext(ctx, &window, `SELECT id, local_date, starts_at FROM posting_windows WHERE region = $1 AND ended_at IS NULL FOR SHARE`, user.Region)
 		}
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
