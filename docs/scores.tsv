@@ -13,3 +13,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-121433	b1c9365	true	35370	#3 ユーザー検索と受け取った友達申請。messages に失敗が十件ほど（件数は人間の目視）	ユーザー検索が 97ms から 10ms 前後に下がり、asia1 の CPU の検索の分が減る	10
 20261031-123015	f616cf7	true	36029	nginx の keepalive と画像の区画の表。スコアは調査役経由	通信の失敗が 0 になり、画像の取得と鍵のクエリが軽くなって asia2 の CPU が下がる	
 20261031-123739	ed2db68	true	40100	DB 接続の待機数・login_sessions のインデックス・エクスポートの画像キャッシュ。messages は 502 が 2・closed network connection が 10・friend-requests の EOF が 5 ほど（人間の目視）	セッションの確認とエクスポートが軽くなり、接続の張り直しが減る	17
+20261031-124329	6aef9dc	true	42709	perf: フィードの候補を投稿者か公開範囲で SQL から絞り、投稿期間と投稿者の複合インデックスを足す (#9)	worker_connections の不足と通信の失敗が消え、フィードのクエリが軽くなる	0
