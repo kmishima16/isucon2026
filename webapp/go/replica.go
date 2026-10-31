@@ -178,6 +178,10 @@ func openReplicaReads(e *echo.Echo, config *Config, primary *HandlerContext) *re
 	replicaConfig := *config
 	replicaConfig.DBHost = host
 	replicaConfig.DBSSLMode = "disable"
+	// DatabaseDSN は pgbouncer の宛先を優先する。消さないと複製のつもりの接続が asia2 の pgbouncer に向き、
+	// 複製の適用位置が読めず（主の DB では NULL）、関所が毎回 250ms 待ってから主の DB で読み直していた
+	replicaConfig.DBPoolHost = ""
+	replicaConfig.DBPoolPort = ""
 	replicaDB, err := sqlx.Open("pgx", replicaConfig.DatabaseDSN())
 	if err != nil {
 		panic("failed to open replica: " + err.Error())
