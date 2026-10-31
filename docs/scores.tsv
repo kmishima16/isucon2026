@@ -22,3 +22,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-132256	e798511	false	0	走行後の整合性チェックで Memories を取得できず fail（グランプリ）	署名を europe1・america1 に任せ、同時実行を絞り、synchronous_commit=off・ログ info	
 20261031-132903	24b7235	true	58270	fix: Memories とエクスポートの同時実行の絞りを戻す（1 本の待ち行列で走行後の整合性チェックが時間切れになり fail した） (#12)	署名の委譲で asia1 の CPU が空き、synchronous_commit=off で asia2 のディスク待ちが下がる	0
 20261031-133759	1fa48af	true	59315	perf: max_wal_size と checkpoint_timeout を上げ、ベンチの最中に WAL 起因のチェックポイントを走らせない (#14)	ベンチの最中の WAL 起因のチェックポイントが消え、asia2 のディスク待ちと画像の INSERT が下がる	
+20261031-134148	2050df7	true	57015	perf: ユーザー検索の候補を 1 行ずつでなく、全員分を長さ付きの 1 つの文字列にまとめて読む (#13)	ユーザー検索の候補をまとめて読み、asia1 の CPU の検索の分が減る	
