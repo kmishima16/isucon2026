@@ -14,3 +14,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-123015	f616cf7	true	36029	nginx の keepalive と画像の区画の表。スコアは調査役経由	通信の失敗が 0 になり、画像の取得と鍵のクエリが軽くなって asia2 の CPU が下がる	
 20261031-123739	ed2db68	true	40100	DB 接続の待機数・login_sessions のインデックス・エクスポートの画像キャッシュ。messages は 502 が 2・closed network connection が 10・friend-requests の EOF が 5 ほど（人間の目視）	セッションの確認とエクスポートが軽くなり、接続の張り直しが減る	17
 20261031-124329	6aef9dc	true	42709	perf: フィードの候補を投稿者か公開範囲で SQL から絞り、投稿期間と投稿者の複合インデックスを足す (#9)	worker_connections の不足と通信の失敗が消え、フィードのクエリが軽くなる	0
+20261031-124803	168d53e	true	42794	fix: 空いた DB の接続を 1 分で返し、初期化の接続の空きを残す (#14)	asia1 の CPU の署名の割合が下がり、途中から入った人の投稿の割合が上がる	0
