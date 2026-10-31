@@ -221,6 +221,8 @@ func registerImageStoreHandlers(mux *http.ServeMux) {
 			return
 		}
 		images.purgeLocal()
+		// 初期化でセッションは DB から消えるので、覚えたものも捨てる（session_cache.go）
+		sessions.reset()
 		w.WriteHeader(http.StatusNoContent)
 	})
 }

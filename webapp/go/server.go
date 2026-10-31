@@ -63,6 +63,7 @@ func NewServer(config *Config) *echo.Echo {
 	go handlerContext.Windows.poll(db, config.Region)
 	localWindowHub.Store(handlerContext.Windows)
 	configureImageStore(config.Region, handlerContext.ImageData)
+	configureSessionCache()
 	e.Use(IPBanMiddleware(handlerContext))
 
 	// deploy の疎通確認用。nginx の無い asia2 でもアプリを動かすようになり、nginx の index.html では確かめられないため。nginx は /internal を通さない
