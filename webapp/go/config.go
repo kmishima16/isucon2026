@@ -16,6 +16,8 @@ type Config struct {
 	LogLevel   string
 	// DB まで遠い台（europe1・america1）で、文の準備の往復を省くときに exec を入れる（server.go）
 	DBExecMode string
+	// DB まで遠い台（europe1・america1）で、TLS を張らないときに disable を入れる。TLS は新しい接続のたびに往復を約 2 回足していた
+	DBSSLMode string
 }
 
 func ConfigFromEnv() *Config {
@@ -28,6 +30,7 @@ func ConfigFromEnv() *Config {
 		DBName:     envOrDefault("ISUREAL_DB_NAME", "isureal"),
 		LogLevel:   envOrDefault("ISUREAL_LOG_LEVEL", "debug"),
 		DBExecMode: envOrDefault("ISUREAL_DB_EXEC_MODE", ""),
+		DBSSLMode:  envOrDefault("ISUREAL_DB_SSLMODE", ""),
 	}
 }
 
@@ -38,9 +41,14 @@ func (c *Config) DatabaseDSN() string {
 		Host:   net.JoinHostPort(c.DBHost, c.DBPort),
 		Path:   "/" + c.DBName,
 	}
+	q := url.Values{}
 	if c.DBExecMode != "" {
-		u.RawQuery = url.Values{"default_query_exec_mode": {c.DBExecMode}}.Encode()
+		q.Set("default_query_exec_mode", c.DBExecMode)
 	}
+	if c.DBSSLMode != "" {
+		q.Set("sslmode", c.DBSSLMode)
+	}
+	u.RawQuery = q.Encode()
 	return u.String()
 }
 
