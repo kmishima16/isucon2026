@@ -90,20 +90,18 @@ func registerHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		defer tx.Rollback()
 		// ユーザー名が一意である必要があります。
-		if _, err := tx.ExecContext(ctx, `LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE`); err != nil {
-			return err
-		}
-		var exists bool
-		if err := tx.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)`, input.Username); err != nil {
-			return err
-		}
-		if exists {
-			return NewAPIError(http.StatusConflict, "username_taken")
-		}
+		// 表ロックは登録どうしと users を書き換える処理をすべて待たせていたので、一意インデックス（sql/002_users_username.sql）に任せる。
+		// INSERT が取る ROW EXCLUSIVE は投稿期間の開始の表ロックと今までどおり衝突するので、通知を作る対象の決まり方は変わらない
 		userID := uuid.NewString()
-		if _, err := tx.ExecContext(ctx, `INSERT INTO users (id, username, secret_key_hash, display_name, region) VALUES ($1, $2, $3, $4, $5)`,
-			userID, input.Username, hex.EncodeToString(hash[:]), input.DisplayName, input.Region); err != nil {
+		result, err := tx.ExecContext(ctx, `INSERT INTO users (id, username, secret_key_hash, display_name, region) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (username) DO NOTHING`,
+			userID, input.Username, hex.EncodeToString(hash[:]), input.DisplayName, input.Region)
+		if err != nil {
 			return err
+		}
+		if inserted, err := result.RowsAffected(); err != nil {
+			return err
+		} else if inserted == 0 {
+			return NewAPIError(http.StatusConflict, "username_taken")
 		}
 		user, err := getUser(ctx, tx, userID)
 		if err != nil {
