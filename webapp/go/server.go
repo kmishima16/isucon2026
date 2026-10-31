@@ -2,6 +2,7 @@ package isureal
 
 import (
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -37,9 +38,14 @@ func NewServer(config *Config) *echo.Echo {
 	if err != nil {
 		panic("failed to open database: " + err.Error())
 	}
-	db.SetMaxOpenConns(30)
+	// PostgreSQL の max_connections は 100。アプリが 4 台になったので、台ごとの本数を systemd の drop-in（server/<台>/）で決める
+	maxConns, err := strconv.Atoi(envOrDefault("ISUREAL_DB_MAX_CONNS", "30"))
+	if err != nil || maxConns <= 0 {
+		panic("invalid ISUREAL_DB_MAX_CONNS")
+	}
+	db.SetMaxOpenConns(maxConns)
 	// 既定では待機させる接続が 2 本だけで、負荷の山のたびに残りを閉じては張り直していた（PostgreSQL のプロセスの起動と認証が毎回 DB の CPU を使い、遠い台では往復も重なる）
-	db.SetMaxIdleConns(30)
+	db.SetMaxIdleConns(maxConns)
 	// 3 台が 30 本ずつ持ち続けると max_connections 100 の残りが数本になり、初期化の psql が too many clients で落ちうる。空いた接続は 1 分で返す
 	db.SetConnMaxIdleTime(1 * time.Minute)
 	err = db.Ping()
@@ -58,6 +64,7 @@ func NewServer(config *Config) *echo.Echo {
 	// asia1 の署名の計算を europe1・america1 に頼む（image_signer.go）。ほかの台では nil
 	imageSigner = newRemoteSigner(signerPeersForRegion(config.Region))
 	go handlerContext.Windows.poll(db, config.Region)
+	localWindowHub.Store(handlerContext.Windows)
 	configureImageStore(config.Region, handlerContext.ImageData)
 	e.Use(IPBanMiddleware(handlerContext))
 

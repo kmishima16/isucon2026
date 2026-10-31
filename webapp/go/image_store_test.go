@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -171,5 +172,30 @@ func TestPostImagesLiveOnTheReceivingServer(t *testing.T) {
 	}
 	if _, ok := cache.get(imageID); ok {
 		t.Fatal("cache still holds the image after initialize")
+	}
+}
+
+func TestConfigureImageStorePeers(t *testing.T) {
+	saved := *images
+	defer func() { *images = saved }()
+	images.dir = t.TempDir()
+	// asia は asia1 と asia2 の 2 台でアプリを動かす。退会やリージョンの変更は、同じリージョンのもう 1 台にだけ伝える
+	for self, wantRegionPeer := range map[string]string{
+		"http://192.168.1.10:8081": "http://192.168.4.10:8081",
+		"http://192.168.4.10:8081": "http://192.168.1.10:8081",
+	} {
+		t.Setenv("ISUREAL_IMAGE_SELF", self)
+		configureImageStore("asia", newImageDataCache())
+		if len(images.peers) != 3 || slices.Contains(images.peers, self) {
+			t.Fatalf("self %s: peers = %v", self, images.peers)
+		}
+		if len(images.regionPeers) != 1 || images.regionPeers[0] != wantRegionPeer {
+			t.Fatalf("self %s: region peers = %v", self, images.regionPeers)
+		}
+	}
+	t.Setenv("ISUREAL_IMAGE_SELF", "")
+	configureImageStore("europe", newImageDataCache())
+	if images.self != "http://192.168.2.10:8081" || len(images.regionPeers) != 0 {
+		t.Fatalf("europe: self %s region peers %v", images.self, images.regionPeers)
 	}
 }

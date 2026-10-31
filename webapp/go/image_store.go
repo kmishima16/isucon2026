@@ -21,11 +21,19 @@ var imageStoreDir = envOrDefault("ISUREAL_IMAGE_STORE", "/home/isucon/image-stor
 
 var imageIDPattern = regexp.MustCompile(`^[0-9a-f-]{36}$`)
 
-// 各台の内部の窓口。台の private IP は CloudFormation で決まっている
+// 各台の内部の窓口。台の private IP は CloudFormation で決まっている。リージョンの既定の台（ISUREAL_IMAGE_SELF が無いときの自分）
 var regionImageHosts = map[string]string{
 	"asia":    "http://192.168.1.10:8081",
 	"europe":  "http://192.168.2.10:8081",
 	"america": "http://192.168.3.10:8081",
+}
+
+// アプリが動く全台の内部の窓口と、そのリージョン。asia2 は DB の台だが、asia1 の nginx から振り分けを受けてアプリも動かす（同じリージョンで往復 0.4ms）
+var appImageHosts = map[string]string{
+	"http://192.168.1.10:8081": "asia",
+	"http://192.168.4.10:8081": "asia",
+	"http://192.168.2.10:8081": "europe",
+	"http://192.168.3.10:8081": "america",
 }
 
 // 既定の Transport は台ごとに 2 本しか接続を残さず、混むとリージョンをまたいで毎回つなぎ直して 2 秒を超えるので、署名と同じだけ残す
@@ -38,7 +46,9 @@ type imageStore struct {
 	dir   string
 	self  string
 	peers []string
-	cache *ImageDataCache
+	// 同じリージョンでアプリが動くほかの台（asia1 と asia2）
+	regionPeers []string
+	cache       *ImageDataCache
 }
 
 var images = &imageStore{dir: imageStoreDir}
@@ -47,9 +57,14 @@ var images = &imageStore{dir: imageStoreDir}
 func configureImageStore(region string, cache *ImageDataCache) {
 	images.self = envOrDefault("ISUREAL_IMAGE_SELF", regionImageHosts[region])
 	images.peers = nil
-	for _, host := range regionImageHosts {
-		if host != images.self {
-			images.peers = append(images.peers, host)
+	images.regionPeers = nil
+	for host, hostRegion := range appImageHosts {
+		if host == images.self {
+			continue
+		}
+		images.peers = append(images.peers, host)
+		if hostRegion == region {
+			images.regionPeers = append(images.regionPeers, host)
 		}
 	}
 	images.cache = cache
@@ -190,6 +205,16 @@ func registerImageStoreHandlers(mux *http.ServeMux) {
 		w.Header().Set("Content-Type", "image/jpeg")
 		_, _ = w.Write(data)
 	})
+	mux.HandleFunc("POST /internal/user-changed", func(w http.ResponseWriter, r *http.Request) {
+		if !fromPrivateNetwork(r.RemoteAddr) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		if hub := localWindowHub.Load(); hub != nil {
+			hub.userChangedLocal()
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("POST /internal/purge-images", func(w http.ResponseWriter, r *http.Request) {
 		if !fromPrivateNetwork(r.RemoteAddr) {
 			http.Error(w, "forbidden", http.StatusForbidden)
@@ -198,4 +223,25 @@ func registerImageStoreHandlers(mux *http.ServeMux) {
 		images.purgeLocal()
 		w.WriteHeader(http.StatusNoContent)
 	})
+}
+
+// notifyUserChanged は、同じリージョンのほかの台に、つながっている利用者の状態を確かめ直させる（待たない）
+func (s *imageStore) notifyUserChanged() {
+	for _, peer := range s.regionPeers {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, peer+"/internal/user-changed", nil)
+			if err != nil {
+				return
+			}
+			res, err := imageHTTPClient.Do(req)
+			if err != nil {
+				log.Printf("failed to notify user change to %s: %v", peer, err)
+				return
+			}
+			_, _ = io.Copy(io.Discard, res.Body)
+			res.Body.Close()
+		}()
+	}
 }

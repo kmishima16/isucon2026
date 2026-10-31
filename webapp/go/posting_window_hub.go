@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -61,8 +62,17 @@ func (h *PostingWindowHub) set(window *activeWindow) {
 	h.changed = make(chan struct{})
 }
 
-// この台で退会やリージョンの変更があったら、つながっている利用者に自分の状態を確かめ直させる
+// 内部の窓口（/internal/user-changed）が、ほかの台での変更をこの台の利用者に伝えるために使う
+var localWindowHub atomic.Pointer[PostingWindowHub]
+
+// この台で退会やリージョンの変更があったら、つながっている利用者に自分の状態を確かめ直させる。
+// asia は asia1 と asia2 の 2 台で受けるので、SSE がもう 1 台につながっている利用者にも伝える
 func (h *PostingWindowHub) UserChanged() {
+	h.userChangedLocal()
+	images.notifyUserChanged()
+}
+
+func (h *PostingWindowHub) userChangedLocal() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.userGen++
