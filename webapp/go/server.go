@@ -42,7 +42,7 @@ func NewServer(config *Config) *echo.Echo {
 	if err != nil {
 		panic("failed to open database: " + err.Error())
 	}
-	// PostgreSQL の max_connections は 100。アプリが 4 台になったので、台ごとの本数を systemd の drop-in（server/<台>/）で決める
+	// PostgreSQL の max_connections は 200。アプリが 4 台になったので、台ごとの本数を systemd の drop-in（server/<台>/）で決める
 	maxConns, err := strconv.Atoi(envOrDefault("ISUREAL_DB_MAX_CONNS", "30"))
 	if err != nil || maxConns <= 0 {
 		panic("invalid ISUREAL_DB_MAX_CONNS")
