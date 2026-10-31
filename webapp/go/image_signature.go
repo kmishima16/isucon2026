@@ -58,7 +58,10 @@ func (c *signatureCache) get(key []byte, imageID string, exp int64) string {
 		}
 	}
 	c.mu.Unlock()
-	sig := base64.RawURLEncoding.EncodeToString(imageSignature(key, imageID, exp))
+	raw := imageSignature(key, imageID, exp)
+	// この台が出した URL はこの台に取りに来るので、検証でもう一度 1000 回計算しないよう、通る署名として覚えておく
+	verifiedImageSignatures.add(verifiedSignatureKey(key, imageID, exp, raw), exp)
+	sig := base64.RawURLEncoding.EncodeToString(raw)
 	c.mu.Lock()
 	// 1 時間分を持つと数十万件になりうるので、上限を超えたら捨てて作り直す
 	if c.exp != exp || len(c.sigs) >= signatureCacheLimit {
@@ -70,7 +73,7 @@ func (c *signatureCache) get(key []byte, imageID string, exp int64) string {
 	return sig
 }
 
-// 同じ URL の画像を何度も取りに来るので、検証に通った署名は期限まで覚えておく。通らなかったものは毎回計算する（guard の判定を変えない）
+// 同じ URL の画像を何度も取りに来るので、検証に通った署名とこの台で作った署名は期限まで覚えておく。通らなかったものは毎回計算する（guard の判定を変えない）
 type verifiedSignatures struct {
 	mu      sync.Mutex
 	entries map[string]int64
@@ -80,18 +83,18 @@ const verifiedSignaturesLimit = 200000
 
 var verifiedImageSignatures = &verifiedSignatures{entries: make(map[string]int64)}
 
-func verifyImageSignature(key []byte, imageID string, exp int64, sig []byte) bool {
-	cacheKey := string(key) + imageID + ":" + strconv.FormatInt(exp, 10) + ":" + string(sig)
-	c := verifiedImageSignatures
+func verifiedSignatureKey(key []byte, imageID string, exp int64, sig []byte) string {
+	return string(key) + imageID + ":" + strconv.FormatInt(exp, 10) + ":" + string(sig)
+}
+
+func (c *verifiedSignatures) contains(cacheKey string) bool {
 	c.mu.Lock()
 	_, ok := c.entries[cacheKey]
 	c.mu.Unlock()
-	if ok {
-		return true
-	}
-	if !hmac.Equal(sig, imageSignature(key, imageID, exp)) {
-		return false
-	}
+	return ok
+}
+
+func (c *verifiedSignatures) add(cacheKey string, exp int64) {
 	c.mu.Lock()
 	if len(c.entries) >= verifiedSignaturesLimit {
 		now := time.Now().Unix()
@@ -106,6 +109,17 @@ func verifyImageSignature(key []byte, imageID string, exp int64, sig []byte) boo
 	}
 	c.entries[cacheKey] = exp
 	c.mu.Unlock()
+}
+
+func verifyImageSignature(key []byte, imageID string, exp int64, sig []byte) bool {
+	cacheKey := verifiedSignatureKey(key, imageID, exp, sig)
+	if verifiedImageSignatures.contains(cacheKey) {
+		return true
+	}
+	if !hmac.Equal(sig, imageSignature(key, imageID, exp)) {
+		return false
+	}
+	verifiedImageSignatures.add(cacheKey, exp)
 	return true
 }
 

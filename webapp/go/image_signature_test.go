@@ -77,6 +77,21 @@ func TestVerifyImageSignature(t *testing.T) {
 	}
 }
 
+func TestSignedSignatureIsRememberedForVerify(t *testing.T) {
+	id := "c55745fb-68eb-481d-8ecb-5cc8053628d7"
+	exp := int64(1793523660)
+	sig, err := base64.RawURLEncoding.DecodeString((&signatureCache{}).get(testSigningKey, id, exp))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !verifiedImageSignatures.contains(verifiedSignatureKey(testSigningKey, id, exp, sig)) {
+		t.Fatal("signature made here is not remembered for verify")
+	}
+	if !verifyImageSignature(testSigningKey, id, exp, sig) {
+		t.Fatal("signature made here does not verify")
+	}
+}
+
 func TestImageURLExpRoundsDownToHour(t *testing.T) {
 	hour := int64(1793523600)
 	for _, tc := range []struct {
