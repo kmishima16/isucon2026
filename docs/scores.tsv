@@ -53,3 +53,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-171502	26b9cce	true	116700	chore: ベンチ結果を記録する	asia2 のアプリへの振り分けを 5 分の 1 に減らし、asia2 の DB に CPU を返す	
 20261031-171827	7d618bb	true	117973	chore: ベンチ結果を記録する	europe1・america1 でも検索を台のメモリの写しで照合する	
 20261031-172235	c958b9e	true	114613	fix: europe1・america1 から転送された閲覧は asia の重い閲覧の絞りにかけない	重い閲覧の絞り・TCP・欧米の転送と SSE と TLS・転送の重み・SSE の直しをまとめて入れる	
+20261031-172759	d3c6017	true	115727	perf: asia1 の nginx で asia2 のアプリに振る分を 5 分の 1 から 9 分の 1 に減らし、asia2 の DB に CPU を返す	SSE の作り直し・絞りを切る・asia2 への振り分け 8:1 をまとめて入れる	
