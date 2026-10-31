@@ -37,7 +37,7 @@ func imageSignature(key []byte, imageID string, exp int64) []byte {
 	return bytes.Clone(value)
 }
 
-// exp は秒単位なので、同じ秒に同じ画像を返す応答（フィードの投稿者のプロフィール画像など）は署名を使い回せる
+// exp は 60 秒単位なので、同じ分に同じ画像を返す応答（フィードの投稿の画像や投稿者のプロフィール画像など）は署名を使い回せる
 type signatureCache struct {
 	mu   sync.Mutex
 	exp  int64
@@ -106,8 +106,17 @@ func verifyImageSignature(key []byte, imageID string, exp int64, sig []byte) boo
 	return true
 }
 
+// exp を秒のままにすると、秒が変わるたびにすべての画像の署名を作り直すことになり、asia1 の CPU の約 3 割を使っていた。
+// 60 秒単位に切り下げて、同じ分の中は署名を使い回す。有効時間が最大 59 秒短くなるだけで、形式と検証は変わらない
+const imageURLExpStep = 60
+
+func imageURLExp(now time.Time) int64 {
+	exp := now.Add(imageURLLifetime).Unix()
+	return exp - exp%imageURLExpStep
+}
+
 func signedImageURL(user User, imageID string) string {
-	exp := time.Now().Add(imageURLLifetime).Unix()
+	exp := imageURLExp(time.Now())
 	query := url.Values{
 		"exp": {strconv.FormatInt(exp, 10)},
 		"sig": {signedURLCache.get(user.ImageKey, imageID, exp)},

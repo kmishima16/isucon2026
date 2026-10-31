@@ -4,8 +4,10 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"net/url"
 	"strconv"
 	"testing"
+	"time"
 )
 
 // 初期実装の署名。速くした実装が同じ値を返すことを確かめるために残す
@@ -72,6 +74,40 @@ func TestVerifyImageSignature(t *testing.T) {
 	}
 	if verifyImageSignature(testSigningKey, id, exp+1, good) {
 		t.Fatal("signature accepted for another exp")
+	}
+}
+
+func TestImageURLExpRoundsDownToMinute(t *testing.T) {
+	minute := int64(1793523600)
+	for _, tc := range []struct {
+		now  int64
+		want int64
+	}{
+		{minute, minute + 86400},
+		{minute + 59, minute + 86400},
+		{minute + 60, minute + 86460},
+	} {
+		if got := imageURLExp(time.Unix(tc.now, 0)); got != tc.want {
+			t.Fatalf("imageURLExp(%d) = %d, want %d", tc.now, got, tc.want)
+		}
+	}
+}
+
+func TestSignedImageURLVerifiesWithRoundedExp(t *testing.T) {
+	id := "777d5e88-9eb9-4084-ac7d-b4c3743ff421"
+	before := time.Now()
+	raw := signedImageURL(User{ImageKey: testSigningKey}, id)
+	u, err := url.Parse(raw)
+	if err != nil || u.Path != "/api/images/"+id {
+		t.Fatalf("unexpected url %q", raw)
+	}
+	exp, err := strconv.ParseInt(u.Query().Get("exp"), 10, 64)
+	if err != nil || exp%60 != 0 || exp > before.Add(imageURLLifetime).Unix()+60 || exp <= before.Add(imageURLLifetime).Unix()-60 {
+		t.Fatalf("unexpected exp %q", u.Query().Get("exp"))
+	}
+	sig, err := base64.RawURLEncoding.DecodeString(u.Query().Get("sig"))
+	if err != nil || !verifyImageSignature(testSigningKey, id, exp, sig) {
+		t.Fatal("signed url does not verify")
 	}
 }
 
