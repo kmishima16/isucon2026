@@ -19,6 +19,8 @@ END $$;
 DROP TRIGGER IF EXISTS users_search_text_invalidate ON users;
 CREATE TRIGGER users_search_text_invalidate BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION isu_users_search_text_invalidate();
+-- reset.sql は session_replication_role = replica で流れ、普通のトリガーは動かない。表示名を初期値に戻しても古い正規化が残り、次の走行の検索から外れるので、replica でも動かす
+ALTER TABLE users ENABLE ALWAYS TRIGGER users_search_text_invalidate;
 
 -- 照合に使う列と、結果を返す列を username, id の順に持ち、並べ替えなしに先頭から読む
 CREATE INDEX IF NOT EXISTS users_active_username_id_search ON users(username, id)
