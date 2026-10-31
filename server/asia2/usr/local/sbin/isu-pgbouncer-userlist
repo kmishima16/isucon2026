@@ -1,0 +1,21 @@
+#!/bin/bash
+# pgbouncer がアプリの利用者を確かめる SCRAM の検証子を、PostgreSQL から書き出す。パスワードをリポジトリに置かないため、起動のたびに作る。
+# 再起動の直後は PostgreSQL がまだ受け付けないことがあるので、少し待つ
+set -euo pipefail
+out=/etc/pgbouncer/userlist.txt
+for _ in $(seq 1 60); do
+  if runuser -u postgres -- pg_isready -q; then break; fi
+  sleep 1
+done
+tmp=$(mktemp /etc/pgbouncer/userlist.XXXXXX)
+# 1 行に "利用者名" "SCRAM-SHA-256$..." の形
+runuser -u postgres -- psql -XAt -d isureal -c \
+  "SELECT '\"' || rolname || '\" \"' || rolpassword || '\"' FROM pg_authid WHERE rolname = 'isureal' AND rolpassword IS NOT NULL" > "$tmp"
+if [ ! -s "$tmp" ]; then
+  rm -f "$tmp"
+  echo "isureal の検証子を読めなかった" >&2
+  exit 1
+fi
+chown postgres:postgres "$tmp"
+chmod 600 "$tmp"
+mv "$tmp" "$out"
