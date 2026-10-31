@@ -1,39 +1,48 @@
 # make local-up で起動する手元の環境（scripts/local.sh）。data/ は local.sh が用意する
+# ISUREAL はアプリが地域ごとに 3 台あるが、セッションの地域とアプリの地域が違うと 403 になるので、手元は asia の 1 台だけ立てる
 name: isu-local
 services:
-  mysql:
-    image: mysql:8.0.40
+  postgres:
+    image: postgres:16
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: isuconp
-      MYSQL_USER: isuconp
-      MYSQL_PASSWORD: isuconp
+      POSTGRES_USER: isureal
+      POSTGRES_PASSWORD: isureal
+      POSTGRES_DB: isureal
     volumes:
       - ./data/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      # 初期データの取り込みの間は、公式のイメージが TCP を閉じた仮のサーバーで動くので、TCP で見る
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "isureal", "-d", "isureal"]
       interval: 2s
       retries: 90
-      # 初期データの取り込みの間は、公式のイメージが TCP を閉じた仮のサーバーで動き、ping が通らない。大きなダンプでも unhealthy にしない
       start_period: 30m
-  memcached:
-    image: memcached:1.6.32
   app:
-    build: ../webapp/golang
+    build:
+      context: ../webapp
+      # 取り込んだコードに Dockerfile が無い。初期化が ../sql/init.sh から psql を呼ぶので、psql と sql/ も入れる
+      dockerfile_inline: |
+        FROM golang:1.26 AS build
+        ENV GOTOOLCHAIN=auto
+        WORKDIR /src
+        COPY go/go.mod go/go.sum ./
+        RUN go mod download
+        COPY go/ ./
+        RUN go build -o /isureal ./cmd/isureal
+        FROM debian:bookworm-slim
+        RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client ca-certificates && rm -rf /var/lib/apt/lists/*
+        COPY sql/ /webapp/sql/
+        COPY --from=build /isureal /webapp/go/isureal
+        WORKDIR /webapp/go
+        CMD ["./isureal"]
     environment:
-      ISUCONP_DB_HOST: mysql
-      ISUCONP_DB_USER: isuconp
-      ISUCONP_DB_PASSWORD: isuconp
-      ISUCONP_DB_NAME: isuconp
-      ISUCONP_MEMCACHED_ADDRESS: memcached:11211
-    volumes:
-      # アプリは ../public（WORKDIR が /home/webapp）に静的ファイルと画像を置く
-      - ./data/public:/home/public
+      ISUREAL_REGION: asia
+      ISUREAL_DB_HOST: postgres
+      ISUREAL_DB_USER: isureal
+      ISUREAL_DB_PASSWORD: isureal
+      ISUREAL_DB_NAME: isureal
     depends_on:
-      mysql:
+      postgres:
         condition: service_healthy
-      memcached:
-        condition: service_started
   nginx:
     image: nginx:1.27.3
     ports:
