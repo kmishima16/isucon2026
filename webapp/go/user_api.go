@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v5"
@@ -84,30 +85,16 @@ func registerHandler(h *HandlerContext) echo.HandlerFunc {
 		secretKey := uuid.NewString()
 		hash := sha256.Sum256([]byte(secretKey))
 		ctx := c.Request().Context()
-		tx, err := h.DB.BeginTxx(ctx, nil)
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
 		// ユーザー名が一意である必要があります。
-		// 表ロックは登録どうしと users を書き換える処理をすべて待たせていたので、一意インデックス（sql/002_users_username.sql）に任せる。
+		// 一意インデックス（sql/002_users_username.sql）に任せ、INSERT と読み直しを 1 文にして DB とは 1 往復で済ませる（遠い台では 1 往復 100ms かかる）。
 		// INSERT が取る ROW EXCLUSIVE は投稿期間の開始の表ロックと今までどおり衝突するので、通知を作る対象の決まり方は変わらない
-		userID := uuid.NewString()
-		result, err := tx.ExecContext(ctx, `INSERT INTO users (id, username, secret_key_hash, display_name, region) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (username) DO NOTHING`,
-			userID, input.Username, hex.EncodeToString(hash[:]), input.DisplayName, input.Region)
-		if err != nil {
-			return err
-		}
-		if inserted, err := result.RowsAffected(); err != nil {
-			return err
-		} else if inserted == 0 {
+		var user User
+		err := h.DB.GetContext(ctx, &user, `INSERT INTO users (id, username, secret_key_hash, display_name, region) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (username) DO NOTHING RETURNING `+strings.Join(userColumns, ", "),
+			uuid.NewString(), input.Username, hex.EncodeToString(hash[:]), input.DisplayName, input.Region)
+		if errors.Is(err, sql.ErrNoRows) {
 			return NewAPIError(http.StatusConflict, "username_taken")
 		}
-		user, err := getUser(ctx, tx, userID)
 		if err != nil {
-			return err
-		}
-		if err := tx.Commit(); err != nil {
 			return err
 		}
 		return c.JSON(http.StatusCreated, registerResponse{SecretKey: secretKey, User: newSessionUserResponse(user)})
