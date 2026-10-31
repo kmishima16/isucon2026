@@ -252,3 +252,27 @@ func TestRemoteSignerReusesConnection(t *testing.T) {
 		t.Fatalf("opened %d connections for 3 batches, want 1 (the response body must be read to the end)", n)
 	}
 }
+
+func TestPrefetchSkipsProxiedRequests(t *testing.T) {
+	srv, calls := newTestSignerServer(t, nil)
+	saved := imageSigner
+	imageSigner = &remoteSigner{peers: []string{srv.URL}, client: &http.Client{}, timeout: 5 * time.Second, minBatch: 1}
+	t.Cleanup(func() { imageSigner = saved })
+	jobs := func(prefix string) []signJob {
+		out := make([]signJob, 0, 10)
+		for i := range 10 {
+			out = append(out, signJob{Key: testSigningKey, ImageID: fmt.Sprintf("%s-%03d", prefix, i)})
+		}
+		return out
+	}
+
+	proxied := context.WithValue(context.Background(), proxiedRegionKey{}, "europe")
+	prefetchImageSignatures(proxied, jobs("proxied"))
+	if calls.Load() != 0 {
+		t.Fatalf("proxied request asked peers %d times; want 0", calls.Load())
+	}
+	prefetchImageSignatures(context.Background(), jobs("direct"))
+	if calls.Load() != 1 {
+		t.Fatalf("direct request asked peers %d times; want 1", calls.Load())
+	}
+}

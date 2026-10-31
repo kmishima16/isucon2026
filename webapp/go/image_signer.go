@@ -137,7 +137,8 @@ func appendProfileImageJob(jobs []signJob, user User) []signJob {
 
 // 応答を組み立てる前に呼ぶ。届かなかった分は、組み立てのときに今までどおりこの台で計算する
 func prefetchImageSignatures(ctx context.Context, jobs []signJob) {
-	if imageSigner == nil {
+	// europe1・america1 から転送されたリクエストで頼むと、頼み先が転送元の遠い台になり、往復が 1 回増える。件数も少ないので自分で計算する
+	if imageSigner == nil || isProxiedRequest(ctx) {
 		return
 	}
 	imageSigner.prefetch(ctx, signedURLCache, jobs, imageURLExp(time.Now()))
