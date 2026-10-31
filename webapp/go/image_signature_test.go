@@ -77,15 +77,16 @@ func TestVerifyImageSignature(t *testing.T) {
 	}
 }
 
-func TestImageURLExpRoundsDownToMinute(t *testing.T) {
-	minute := int64(1793523600)
+func TestImageURLExpRoundsDownToHour(t *testing.T) {
+	hour := int64(1793523600)
 	for _, tc := range []struct {
 		now  int64
 		want int64
 	}{
-		{minute, minute + 86400},
-		{minute + 59, minute + 86400},
-		{minute + 60, minute + 86460},
+		{hour, hour + 86400},
+		{hour + 59, hour + 86400},
+		{hour + 3599, hour + 86400},
+		{hour + 3600, hour + 90000},
 	} {
 		if got := imageURLExp(time.Unix(tc.now, 0)); got != tc.want {
 			t.Fatalf("imageURLExp(%d) = %d, want %d", tc.now, got, tc.want)
@@ -102,7 +103,7 @@ func TestSignedImageURLVerifiesWithRoundedExp(t *testing.T) {
 		t.Fatalf("unexpected url %q", raw)
 	}
 	exp, err := strconv.ParseInt(u.Query().Get("exp"), 10, 64)
-	if err != nil || exp%60 != 0 || exp > before.Add(imageURLLifetime).Unix()+60 || exp <= before.Add(imageURLLifetime).Unix()-60 {
+	if err != nil || exp%imageURLExpStep != 0 || exp > before.Add(imageURLLifetime).Unix()+imageURLExpStep || exp <= before.Add(imageURLLifetime).Unix()-imageURLExpStep {
 		t.Fatalf("unexpected exp %q", u.Query().Get("exp"))
 	}
 	sig, err := base64.RawURLEncoding.DecodeString(u.Query().Get("sig"))
