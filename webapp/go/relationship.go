@@ -3,7 +3,6 @@ package isureal
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"net/http"
 	"time"
 
@@ -34,17 +33,27 @@ func beginRelationshipTx(ctx context.Context, db *sqlx.DB, actor, target string)
 	if err != nil {
 		return nil, err
 	}
-	for _, id := range []string{min(actor, target), max(actor, target)} {
-		var lockedID string
-		if err := tx.GetContext(ctx, &lockedID, `SELECT id FROM users WHERE id=$1 AND status='active' FOR NO KEY UPDATE`, id); err != nil {
-			tx.Rollback()
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, NewAPIError(http.StatusNotFound, "relationship_not_found")
-			}
-			return nil, err
-		}
+	var active int
+	if err := tx.GetContext(ctx, &active, `
+  SELECT (SELECT count(*) FROM users WHERE id IN ($1, $2) AND status = 'active')
+  FROM (SELECT pg_advisory_xact_lock(hashtext($1 || ':' || $2))) pair_lock
+ `, min(actor, target), max(actor, target)); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if active != 2 {
+		tx.Rollback()
+		return nil, NewAPIError(http.StatusNotFound, "relationship_not_found")
 	}
 	return tx, nil
+}
+
+// 同じ 2 人の間の操作（友達・フォロー・ブロック・RealMoji・コメント）だけを並べる。
+// 前は 2 人の users の行を FOR NO KEY UPDATE で取っていて、人気のアカウントへの操作がすべて 1 列に並び、DB の接続も握ったまま待っていた。
+// 退会と並ばなくなるが、退会した人は以降の読み取りで users.status を見て外される
+func lockUserPair(ctx context.Context, tx *sqlx.Tx, a, b string) error {
+	_, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtext($1 || ':' || $2))`, min(a, b), max(a, b))
+	return err
 }
 
 func isBlocked(ctx context.Context, db sqlx.QueryerContext, actor, target string) (bool, error) {
