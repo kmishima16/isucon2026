@@ -23,6 +23,10 @@ func initializeHandler(h *HandlerContext) echo.HandlerFunc {
 		if err := cmd.Run(); err != nil {
 			return err
 		}
+		// 検索は正規化した名前の列で絞る。初期化で戻した行と、列を足す前からの行は NULL なので埋める（user_read_api.go）
+		if err := fillSearchTexts(c.Request().Context(), h.DB); err != nil {
+			return err
+		}
 		// 走行中の投稿の画像は各台のディスクにある。DB から消えたので、全台の置き場所とメモリも空にする（image_store.go）
 		images.purgeAll(c.Request().Context())
 

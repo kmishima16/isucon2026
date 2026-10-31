@@ -179,43 +179,51 @@ func TestSearchUsersMatchesReference(t *testing.T) {
 		return ""
 	}
 
-	pagesOf := map[string]int{}
-	queries := []string{
-		"taro", "TARO", "ｔａｒｏ", "Ｔａｒｏ", "해바라기", norm.NFD.String("해바라기"), "café", "CAFÉ", "cafe\u0301",
-		"STRASSE", "ß", "kelvin", "太郎", "p", "1", "_", "bio", "viewer", "zzz",
-	}
-	for _, q := range queries {
-		params := url.Values{"q": {q}}
-		for page := 1; ; page++ {
-			var res searchUsersResponse
-			if err := json.Unmarshal([]byte(compare(params)), &res); err != nil {
-				t.Fatalf("q %q page %d: %v", q, page, err)
+	// 正規化した名前の列が NULL のまま（アプリだけで照合）と、埋めた後（DB で絞る）の両方で比べる
+	for _, fill := range []bool{false, true} {
+		if fill {
+			if err := fillSearchTexts(context.Background(), db); err != nil {
+				t.Fatal(err)
 			}
-			pagesOf[q] = page
-			if !res.HasMore {
-				break
+		}
+		pagesOf := map[string]int{}
+		queries := []string{
+			"taro", "TARO", "ｔａｒｏ", "Ｔａｒｏ", "해바라기", norm.NFD.String("해바라기"), "café", "CAFÉ", "cafe\u0301",
+			"STRASSE", "ß", "kelvin", "太郎", "p", "1", "_", "bio", "viewer", "zzz",
+		}
+		for _, q := range queries {
+			params := url.Values{"q": {q}}
+			for page := 1; ; page++ {
+				var res searchUsersResponse
+				if err := json.Unmarshal([]byte(compare(params)), &res); err != nil {
+					t.Fatalf("q %q page %d: %v", q, page, err)
+				}
+				pagesOf[q] = page
+				if !res.HasMore {
+					break
+				}
+				last := res.Items[len(res.Items)-1]
+				params = url.Values{"q": {q}, "beforeUsername": {last.Username}, "beforeId": {last.ID}}
 			}
-			last := res.Items[len(res.Items)-1]
-			params = url.Values{"q": {q}, "beforeUsername": {last.Username}, "beforeId": {last.ID}}
 		}
-	}
-	// 検索語が正規化で当たり、ページをまたいでいることを確かめる（比べるだけでは、両方が空でも通る）
-	for q, want := range map[string]int{"taro": 2, "해바라기": 2, "p": 6, "zzz": 1} {
-		if pagesOf[q] != want {
-			t.Fatalf("q %q: %d pages, want %d", q, pagesOf[q], want)
+		// 検索語が正規化で当たり、ページをまたいでいることを確かめる（比べるだけでは、両方が空でも通る）
+		for q, want := range map[string]int{"taro": 2, "해바라기": 2, "p": 6, "zzz": 1} {
+			if pagesOf[q] != want {
+				t.Fatalf("q %q: %d pages, want %d", q, pagesOf[q], want)
+			}
 		}
-	}
 
-	// 途中のカーソル（実在しないユーザー名を含む）と、不正な入力
-	for _, params := range []url.Values{
-		{"q": {"p"}, "beforeUsername": {"p150"}, "beforeId": {"zzz"}},
-		{"q": {"p"}, "beforeUsername": {"p149x"}, "beforeId": {"a"}},
-		{"q": {"taro"}, "beforeUsername": {"p299"}, "beforeId": {"u299"}},
-		{"q": {"taro"}, "beforeUsername": {"p100"}},
-		{"q": {""}},
-		{"q": {strings.Repeat("あ", 101)}},
-	} {
-		compare(params)
+		// 途中のカーソル（実在しないユーザー名を含む）と、不正な入力
+		for _, params := range []url.Values{
+			{"q": {"p"}, "beforeUsername": {"p150"}, "beforeId": {"zzz"}},
+			{"q": {"p"}, "beforeUsername": {"p149x"}, "beforeId": {"a"}},
+			{"q": {"taro"}, "beforeUsername": {"p299"}, "beforeId": {"u299"}},
+			{"q": {"taro"}, "beforeUsername": {"p100"}},
+			{"q": {""}},
+			{"q": {strings.Repeat("あ", 101)}},
+		} {
+			compare(params)
+		}
 	}
 }
 
@@ -273,81 +281,6 @@ func TestSearchUsersPrefetchesSignatures(t *testing.T) {
 	}
 	if local != remote {
 		t.Fatal("search differs with and without the remote signer")
-	}
-}
-
-func TestParseSearchCandidates(t *testing.T) {
-	display := "12:34\n\x1f名前"
-	packed := "3:u01" + "8:taro_u01" + fmt.Sprintf("%d:", len(display)) + display + "1:a1:b0:"
-	got, err := parseSearchCandidates(packed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []searchCandidate{
-		{ID: "u01", Username: "taro_u01", DisplayName: "12:34\n\x1f名前"},
-		{ID: "a", Username: "b", DisplayName: ""},
-	}
-	if len(got) != len(want) {
-		t.Fatalf("got %d candidates, want %d: %#v", len(got), len(want), got)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("candidate %d = %#v, want %#v", i, got[i], want[i])
-		}
-	}
-	if got, err := parseSearchCandidates(""); err != nil || len(got) != 0 {
-		t.Fatalf("empty input: %v %v", got, err)
-	}
-	for _, bad := range []string{"3:ab", "x:abc", "3abc", "1:a1:b", "1:a", "-1:a1:b1:c", "1:a1:b1:c2"} {
-		if _, err := parseSearchCandidates(bad); err == nil {
-			t.Errorf("accepted malformed input %q", bad)
-		}
-	}
-}
-
-// ISUREAL_TEST_DSN に空の DB（001-schema.sql と sql/*.sql を流したもの）を渡したときだけ動く
-func TestSelectSearchCandidatesMatchesRowQuery(t *testing.T) {
-	dsn := os.Getenv("ISUREAL_TEST_DSN")
-	if dsn == "" {
-		t.Skip("ISUREAL_TEST_DSN is not set")
-	}
-	db := sqlx.MustOpen("pgx", dsn)
-	defer db.Close()
-	db.MustExec(`TRUNCATE follows, friendships, friend_requests, block_relations, users CASCADE`)
-	names := []string{"Taro", "12:34", "改行\nあり", "\x1funit", "ｆｕｌｌ", "ß", "Ａ:Ｂ", "x"}
-	for i, display := range names {
-		id := fmt.Sprintf("id-%02d", (i*5)%len(names))
-		db.MustExec(`INSERT INTO users (id, username, secret_key_hash, display_name, region, status) VALUES ($1, $2, $3, $4, 'asia', $5)`,
-			id, fmt.Sprintf("name_%02d", (i*3)%len(names)), strings.Repeat("0", 64), display, map[bool]string{true: "deleted", false: "active"}[i == 6])
-	}
-	rowQuery := func(viewer, beforeUsername, beforeID string) []searchCandidate {
-		var rows []searchCandidate
-		if beforeUsername == "" {
-			db.Select(&rows, `SELECT id, username, display_name FROM users WHERE status='active' AND id<>$1 ORDER BY username, id`, viewer)
-		} else {
-			db.Select(&rows, `SELECT id, username, display_name FROM users WHERE status='active' AND id<>$1 AND (username,id)>($2,$3) ORDER BY username, id`, viewer, beforeUsername, beforeID)
-		}
-		return rows
-	}
-	for _, tc := range []struct{ viewer, beforeUsername, beforeID string }{
-		{"id-00", "", ""},
-		{"nobody", "", ""},
-		{"id-03", "name_02", "id-05"},
-		{"id-03", "name_99", "zzz"},
-	} {
-		got, err := selectSearchCandidates(context.Background(), db, tc.viewer, tc.beforeUsername, tc.beforeID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		want := rowQuery(tc.viewer, tc.beforeUsername, tc.beforeID)
-		if len(got) != len(want) {
-			t.Fatalf("%+v: got %d candidates, want %d", tc, len(got), len(want))
-		}
-		for i := range want {
-			if got[i] != want[i] {
-				t.Fatalf("%+v: candidate %d = %#v, want %#v", tc, i, got[i], want[i])
-			}
-		}
 	}
 }
 

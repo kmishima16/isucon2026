@@ -4,9 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -65,62 +65,63 @@ func (m *searchTextMemo) normalize(value string) string {
 	return normalized
 }
 
-type searchCandidate struct {
-	ID          string `db:"id"`
-	Username    string `db:"username"`
-	DisplayName string `db:"display_name"`
-}
+// 全員分の username と display_name を 1 つの文字列にまとめて毎回読んでいて、DB の時間の 2 位だった（1 回 57ms）。
+// 正規化した名前の列（sql/011_users_search_text.sql）で DB が絞り、当たった人だけを全列で 1 回で読む。
+// 正規化が NULL の行は DB では絞れないので必ず読み、アプリで今までどおり確かめる。
+// 内側はインデックスだけで絞り（INCLUDE の列は Index Only Scan でしか条件に使えない）、外側で当たった行だけを主キーで表から読む（IN だと表を全件読んで突き合わせる）。
+// カーソルの有無で SQL を分けるのは、($2=” OR ...) の形だと、使い回す実行計画がインデックスを使わず全件を並べ替えるため
+const searchUsersQuery = `SELECT u.id, u.username, u.secret_key_hash, u.display_name, u.bio, u.profile_image_id, u.region, u.account_type, u.status
+ FROM users u WHERE u.id = ANY(ARRAY(
+  SELECT id FROM users WHERE status='active' AND id<>$1
+   AND (search_username IS NULL OR search_display_name IS NULL OR strpos(search_username, $2) > 0 OR strpos(search_display_name, $2) > 0)%s
+  ORDER BY username, id LIMIT $3
+ )) ORDER BY u.username, u.id`
 
-// 有効なユーザー全員を全列で読んで並べ替えていて、1 回 82ms かかっていた。照合に要る 3 列だけを
-// sql/003_users_search.sql のインデックスから並んだまま読む。カーソルの有無で SQL を分けるのは、
-// ($2=” OR ...) の形だと、使い回す実行計画がインデックスを使わず全件を並べ替えるため。
-// 約 5000 行を 1 行ずつ受け取って詰めるだけで asia1 の CPU の 2 割を使っていたので、全員分を「バイト数:中身」の並びの
-// 1 つの文字列にまとめて受け取る。表示名にはどんな文字も入るので、区切り文字ではなく長さで切る
-const searchCandidatesPacked = `SELECT coalesce(string_agg(octet_length(id) || ':' || id || octet_length(username) || ':' || username || octet_length(display_name) || ':' || display_name, '' ORDER BY username, id), '') FROM users WHERE status='active' AND id<>$1`
+var (
+	searchUsersFirst = fmt.Sprintf(searchUsersQuery, "")
+	searchUsersAfter = fmt.Sprintf(searchUsersQuery, ` AND (username,id)>($4,$5)`)
+)
 
-func selectSearchCandidates(ctx context.Context, db sqlx.QueryerContext, viewer, beforeUsername, beforeID string) ([]searchCandidate, error) {
-	var packed string
+func selectSearchUsers(ctx context.Context, db sqlx.QueryerContext, viewer, query string, limit int, beforeUsername, beforeID string) ([]User, error) {
+	var users []User
 	var err error
 	if beforeUsername == "" {
-		err = sqlx.GetContext(ctx, db, &packed, searchCandidatesPacked, viewer)
+		err = sqlx.SelectContext(ctx, db, &users, searchUsersFirst, viewer, query, limit)
 	} else {
-		err = sqlx.GetContext(ctx, db, &packed, searchCandidatesPacked+` AND (username,id)>($2,$3)`, viewer, beforeUsername, beforeID)
+		err = sqlx.SelectContext(ctx, db, &users, searchUsersAfter, viewer, query, limit, beforeUsername, beforeID)
 	}
-	if err != nil {
-		return nil, err
-	}
-	return parseSearchCandidates(packed)
+	return users, err
 }
 
-var errMalformedSearchCandidates = errors.New("malformed search candidates")
-
-// 切り出した値は packed を共有するので、1 人ごとにメモリを確保しない
-func parseSearchCandidates(packed string) ([]searchCandidate, error) {
-	candidates := make([]searchCandidate, 0, len(packed)/48)
-	rest := packed
-	next := func() (string, bool) {
-		colon := strings.IndexByte(rest, ':')
-		if colon <= 0 {
-			return "", false
-		}
-		n, err := strconv.Atoi(rest[:colon])
-		if err != nil || n < 0 || colon+1+n > len(rest) {
-			return "", false
-		}
-		value := rest[colon+1 : colon+1+n]
-		rest = rest[colon+1+n:]
-		return value, true
+// fillSearchTexts は、正規化した名前が NULL の行を埋める（初期化の後）。読んだ時と名前が同じ行だけを書く
+func fillSearchTexts(ctx context.Context, db *sqlx.DB) error {
+	var rows []struct {
+		ID          string `db:"id"`
+		Username    string `db:"username"`
+		DisplayName string `db:"display_name"`
 	}
-	for rest != "" {
-		id, ok1 := next()
-		username, ok2 := next()
-		displayName, ok3 := next()
-		if !ok1 || !ok2 || !ok3 {
-			return nil, errMalformedSearchCandidates
-		}
-		candidates = append(candidates, searchCandidate{ID: id, Username: username, DisplayName: displayName})
+	if err := db.SelectContext(ctx, &rows, `SELECT id, username, display_name FROM users WHERE search_username IS NULL OR search_display_name IS NULL`); err != nil {
+		return err
 	}
-	return candidates, nil
+	if len(rows) == 0 {
+		return nil
+	}
+	ids := make([]string, len(rows))
+	usernames := make([]string, len(rows))
+	displayNames := make([]string, len(rows))
+	searchUsernames := make([]string, len(rows))
+	searchDisplayNames := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i], usernames[i], displayNames[i] = row.ID, row.Username, row.DisplayName
+		searchUsernames[i] = normalizeSearchText(row.Username)
+		searchDisplayNames[i] = normalizeSearchText(row.DisplayName)
+	}
+	_, err := db.ExecContext(ctx, `
+  UPDATE users u SET search_username = v.su, search_display_name = v.sd
+  FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[]) AS v(id, un, dn, su, sd)
+  WHERE u.id = v.id AND u.username = v.un AND u.display_name = v.dn
+ `, ids, usernames, displayNames, searchUsernames, searchDisplayNames)
+	return err
 }
 
 func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
@@ -137,56 +138,53 @@ func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		ctx := c.Request().Context()
 		viewer := GetSession(c).UserID
-		candidates, err := selectSearchCandidates(ctx, h.DB, viewer, input.BeforeUsername, input.BeforeID)
-		if err != nil {
-			return err
-		}
 		blocked, err := getBlockedUserIDs(ctx, h.DB, viewer)
 		if err != nil {
 			return err
 		}
 		query := normalizeSearchText(input.Q)
-		ids := make([]string, 0, 51)
-		for _, candidate := range candidates {
-			if !strings.Contains(searchTexts.normalize(candidate.Username), query) && !strings.Contains(searchTexts.normalize(candidate.DisplayName), query) {
-				continue
-			}
-			if blocked[candidate.ID] {
-				continue
-			}
-			ids = append(ids, candidate.ID)
-			if len(ids) == 51 {
-				break
-			}
-		}
-		items := make([]relationshipUserResponse, 0, len(ids))
-		if len(ids) > 0 {
-			var users []User
-			if err := h.DB.SelectContext(ctx, &users, `SELECT `+strings.Join(userColumns, ", ")+` FROM users WHERE id = ANY($1) AND status='active'`, ids); err != nil {
+		// DB が絞った行のうち、外れるのはブロック中の人と、正規化が NULL で当たらない人だけ。足りなければ続きを読む
+		limit := 51 + len(blocked)
+		matched := make([]User, 0, 51)
+		beforeUsername, beforeID := input.BeforeUsername, input.BeforeID
+	scan:
+		for {
+			users, err := selectSearchUsers(ctx, h.DB, viewer, query, limit, beforeUsername, beforeID)
+			if err != nil {
 				return err
 			}
-			byID := make(map[string]User, len(users))
-			jobs := make([]signJob, 0, len(users))
-			for i := range users {
-				if err := users[i].setImageKey(); err != nil {
-					return err
-				}
-				byID[users[i].ID] = users[i]
-				jobs = appendProfileImageJob(jobs, users[i])
-			}
-			// 結果のプロフィール画像の署名を、europe1・america1 にまとめて頼む（image_signer.go）
-			prefetchImageSignatures(ctx, jobs)
-			for _, id := range ids {
-				// 2 回の読み取りの間に退会したユーザーは出さない
-				user, ok := byID[id]
-				if !ok {
+			for _, user := range users {
+				if !strings.Contains(searchTexts.normalize(user.Username), query) && !strings.Contains(searchTexts.normalize(user.DisplayName), query) {
 					continue
 				}
-				if user.AccountType != "certified_public" {
-					user.Bio = ""
+				if blocked[user.ID] {
+					continue
 				}
-				items = append(items, newRelationshipUserResponse(user))
+				matched = append(matched, user)
+				if len(matched) == 51 {
+					break scan
+				}
 			}
+			if len(users) < limit {
+				break
+			}
+			beforeUsername, beforeID = users[len(users)-1].Username, users[len(users)-1].ID
+		}
+		jobs := make([]signJob, 0, len(matched))
+		for i := range matched {
+			if err := matched[i].setImageKey(); err != nil {
+				return err
+			}
+			jobs = appendProfileImageJob(jobs, matched[i])
+		}
+		// 結果のプロフィール画像の署名を、europe1・america1 にまとめて頼む（image_signer.go）
+		prefetchImageSignatures(ctx, jobs)
+		items := make([]relationshipUserResponse, 0, len(matched))
+		for _, user := range matched {
+			if user.AccountType != "certified_public" {
+				user.Bio = ""
+			}
+			items = append(items, newRelationshipUserResponse(user))
 		}
 		hasMore := len(items) > 50
 		if hasMore {
