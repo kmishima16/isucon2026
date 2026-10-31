@@ -51,3 +51,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-170916	0f9d3af	true	107803	fix: europe1・america1 の DB の接続を 60 本から 30 本に減らし、asia2 の取り合いとメモリを抑える	europe1・america1 の接続を 30 本にし、欧米の伸びを残したまま asia2 の取り合いとメモリを抑える	
 20261031-171219	a370e15	true	111232	chore: ベンチ結果を記録する	画像の判定で区画に分かれた画像の表を引かず、DB の 1 位が減る	
 20261031-171502	26b9cce	true	116700	chore: ベンチ結果を記録する	asia2 のアプリへの振り分けを 5 分の 1 に減らし、asia2 の DB に CPU を返す	
+20261031-171827	7d618bb	true	117973	chore: ベンチ結果を記録する	europe1・america1 でも検索を台のメモリの写しで照合する	
