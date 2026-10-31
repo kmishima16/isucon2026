@@ -18,3 +18,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-125431	1faf051	true	45745	perf: Memories で次のページの有無を見るためだけに読む 51 件目を、応答を作る前に落として署名しない (#10)	画像の取得の検証で署名を計算し直さなくなり、asia1 の CPU の署名の割合が下がる	0
 20261031-125956	dc24c8b	true	44918	perf: 投稿の手順を PostgreSQL の関数にまとめ、DB との往復を 12 回から 1〜2 回にする (#12)	europe・america の POST /api/posts が約 1 秒縮み、両リージョンの人数が増える	0
 20261031-130629	9dde8d3	true	45169	perf: 登録の INSERT と読み直しを 1 文にし、DB との往復を 4 回から 1 回にする (#12)	投稿の 409 が 0 に戻り、europe・america のログイン・友達申請・登録が速くなって人数が増える	
+20261031-131608	3c20c5e	true	44796	perf: PostgreSQL の全クエリのログを外し、asia2 のディスクへの書き込みを減らす (#14)	全クエリのログを外し、asia2 のディスク待ちと画像の INSERT が下がる。#7 の条件を測り直す	
