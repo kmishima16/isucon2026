@@ -28,7 +28,11 @@ var regionImageHosts = map[string]string{
 	"america": "http://192.168.3.10:8081",
 }
 
-var imageHTTPClient = &http.Client{Timeout: 2 * time.Second}
+// 既定の Transport は台ごとに 2 本しか接続を残さず、混むとリージョンをまたいで毎回つなぎ直して 2 秒を超えるので、署名と同じだけ残す
+var imageHTTPClient = &http.Client{
+	Timeout:   2 * time.Second,
+	Transport: &http.Transport{MaxIdleConnsPerHost: 32, IdleConnTimeout: 90 * time.Second},
+}
 
 type imageStore struct {
 	dir   string

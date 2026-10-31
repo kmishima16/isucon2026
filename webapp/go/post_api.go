@@ -107,10 +107,11 @@ func createPostHandler(h *HandlerContext) echo.HandlerFunc {
    FROM isu_create_post($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
   `, userID, uuid.NewString(), imageID, []byte{}, input.Caption, input.Visibility,
 			location.Kind, location.Latitude, location.Longitude, location.Locality, postedAt, images.self)
-		if err != nil {
+		var pgErr *pgconn.PgError
+		// 消すのは DB がロールバックしたと分かるときだけ。接続が切れただけなら、DB ではコミット済みのことがある
+		if errors.As(err, &pgErr) {
 			images.remove(imageID)
 		}
-		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "IR409" {
 			return NewAPIError(http.StatusConflict, "post_slot_unavailable")
 		}
