@@ -68,6 +68,8 @@ func NewServer(config *Config) *echo.Echo {
 	configureImageStore(config.Region, handlerContext.ImageData)
 	e.Use(IPBanMiddleware(handlerContext))
 
+	// deploy の疎通確認用。nginx の無い asia2 でもアプリを動かすようになり、nginx の index.html では確かめられないため。nginx は /internal を通さない
+	e.GET("/internal/health", func(c *echo.Context) error { return c.String(200, "ok") })
 	e.POST("/api/initialize", initializeHandler(handlerContext))
 	e.POST("/api/auth/register", registerHandler(handlerContext))
 	e.POST("/api/auth/login", loginHandler(handlerContext))
