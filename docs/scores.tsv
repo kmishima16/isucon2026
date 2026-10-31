@@ -4,3 +4,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-104418	8642ac4	true	4998	perf: PostgreSQL の shared_buffers などを台のメモリに合わせて上げる	画像の取得の全件走査が消え、GET /api/images の合計時間が大きく減る	
 20261031-105432	1263859	true	13903	perf: 登録のユーザー名の重複を表ロックでなく一意インデックスで防ぐ	投稿期間の FOR UPDATE と登録の LOCK TABLE users の待ちが減り、europe の POST /api/posts が速くなる	
 20261031-111307	a740597	true	9518	画像のキャッシュ＋pprof（pprotein で 3 台の pprof を収集中）。スコアは調査役経由	画像の権限確認のクエリが消え、europe・america の GET /api/images が速くなる	
+20261031-111735	f701eda	true	19447	perf: 通知を投稿期間の開始で全員分 INSERT せず、台ごとに投稿期間を見張ってつながっている利用者に配る (#1)	画像のキャッシュを戻して 13903 の帯に戻り、通知の INSERT と LOCK TABLE users が消えて投稿期間の開始が数十 ms になる	
