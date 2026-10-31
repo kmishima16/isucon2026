@@ -44,3 +44,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-163950	7d77e98	true	96689	perf: europe1・america1 で SQL ごとの文の準備の往復を省き、DB の接続を閉じずに起動時に開いておく (#12)	検索のブロックを SQL で外し、europe1・america1 の文の準備の往復を省いて、europe・america の新しい人が増える	
 20261031-164447	4e4059d	true	94673	perf: europe1・america1 だけ、閲覧者の友達・ブロックなどを 1 回のクエリで読み、友達どうしの組は UNION でインデックスから引く (#11)	europe1・america1 の友達フィードの往復をまとめ、europe・america のフィードが速くなる	
 20261031-164850	d68af30	true	94937	chore: 計測を戻す	計測を戻して europe・america の新しい人の経路を API ごとに測る回	
+20261031-165459	8f43191	true	96266	perf: asia1・asia2 のユーザー検索を台のメモリの利用者の写しで照合し、DB には差分とブロックだけを 1 回で聞く (#13)	asia1・asia2 の検索を台のメモリの写しで照合し、検索のクエリが DB の上位から消える	
