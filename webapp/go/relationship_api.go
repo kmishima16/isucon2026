@@ -1,9 +1,11 @@
 package isureal
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/labstack/echo/v5"
 )
 
@@ -47,36 +49,21 @@ func followHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		ctx := c.Request().Context()
 		actor := GetSession(c).UserID
-		tx, err := beginRelationshipTx(ctx, h.DB, actor, input.UserID)
+		if actor == input.UserID || input.UserID == "" {
+			return NewAPIError(http.StatusBadRequest, "invalid_relationship")
+		}
+		// 手順は sql/012_relationship_functions.sql の関数にまとめ、DB とは 1 往復で済ませる（europe1 ではフォローに 1.22 秒かかっていた）
+		_, err := h.DB.ExecContext(ctx, `SELECT isu_follow($1, $2, $3)`, actor, input.UserID, uuid.NewString())
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case "IR404":
+				return NewAPIError(http.StatusNotFound, "relationship_not_found")
+			case "IR409":
+				return NewAPIError(http.StatusConflict, "relationship_conflict")
+			}
+		}
 		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
-		target, err := getUser(ctx, tx, input.UserID)
-		if err != nil {
-			return err
-		}
-		if target.AccountType != "certified_public" {
-			return NewAPIError(http.StatusConflict, "relationship_conflict")
-		}
-		blocked, err := isBlocked(ctx, tx, actor, target.ID)
-		if err != nil {
-			return err
-		}
-		if blocked {
-			return NewAPIError(http.StatusConflict, "relationship_conflict")
-		}
-		var exists bool
-		if err := tx.GetContext(ctx, &exists, `SELECT EXISTS(SELECT 1 FROM follows WHERE follower_id=$1 AND followee_id=$2)`, actor, target.ID); err != nil {
-			return err
-		}
-		if exists {
-			return NewAPIError(http.StatusConflict, "relationship_conflict")
-		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO follows (id, follower_id, followee_id) VALUES ($1,$2,$3)`, uuid.NewString(), actor, target.ID); err != nil {
-			return err
-		}
-		if err := tx.Commit(); err != nil {
 			return err
 		}
 		return c.NoContent(http.StatusNoContent)

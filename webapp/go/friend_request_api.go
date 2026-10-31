@@ -1,7 +1,6 @@
 package isureal
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
 	"time"
@@ -77,48 +76,21 @@ func transitionFriendRequestHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		ctx := c.Request().Context()
 		actor := GetSession(c).UserID
-		request, err := getFriendRequest(ctx, h.DB, input.RequestID)
-		if errors.Is(err, sql.ErrNoRows) {
-			return NewAPIError(http.StatusNotFound, "relationship_not_found")
-		}
-		if err != nil {
-			return err
-		}
-		if (status == "cancelled" && actor != request.RequesterID) || (status != "cancelled" && actor != request.RecipientID) {
-			return NewAPIError(http.StatusForbidden, "relationship_action_forbidden")
-		}
-		tx, err := beginRelationshipTx(ctx, h.DB, request.RequesterID, request.RecipientID)
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
-		request, err = getFriendRequest(ctx, tx, input.RequestID)
-		if err != nil {
-			return err
-		}
-		if request.Status != "pending" {
-			return NewAPIError(http.StatusForbidden, "relationship_action_forbidden")
-		}
-		if status == "accepted" {
-			blocked, err := isBlocked(ctx, tx, request.RequesterID, request.RecipientID)
-			if err != nil {
-				return err
-			}
-			if blocked {
+		// 手順は sql/012_relationship_functions.sql の関数にまとめ、DB とは 1 往復で済ませる（europe1 では承認に 1.19 秒かかっていた）
+		var request FriendRequest
+		err := h.DB.GetContext(ctx, &request, `SELECT o_id AS id, o_status AS status, o_updated_at AS updated_at FROM isu_transition_friend_request($1, $2, $3)`, actor, input.RequestID, status)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			switch pgErr.Code {
+			case "IR404":
+				return NewAPIError(http.StatusNotFound, "relationship_not_found")
+			case "IR403":
+				return NewAPIError(http.StatusForbidden, "relationship_action_forbidden")
+			case "IR409":
 				return NewAPIError(http.StatusConflict, "relationship_conflict")
 			}
-			if err := insertFriendship(ctx, tx, request); err != nil {
-				return err
-			}
 		}
-		if _, err := tx.ExecContext(ctx, `UPDATE friend_requests SET status=$2, updated_at=clock_timestamp() WHERE id=$1`, request.ID, status); err != nil {
-			return err
-		}
-		request, err = getFriendRequest(ctx, tx, request.ID)
 		if err != nil {
-			return err
-		}
-		if err := tx.Commit(); err != nil {
 			return err
 		}
 		return c.JSON(http.StatusOK, transitionFriendRequestResponse{RelationID: request.ID, Status: request.Status, UpdatedAt: request.UpdatedAt})
