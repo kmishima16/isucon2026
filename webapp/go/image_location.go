@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -62,4 +63,40 @@ func getImageOwnerKey(ctx context.Context, db sqlx.QueryerContext, imageID strin
   WHERE i.id = $1 AND u.status = 'active'
  `, imageID)
 	return row, err
+}
+
+// 画像 id ごとの持ち主の鍵・区画の時刻・中身を持つ台は、あとから変わらない（id は UUID で使い回さず、鍵を変える処理も無い）。
+// 取得のたびに DB に聞いていて、asia2 の DB の時間の 4 位だった（12605 回・31 秒）。遠い台では往復も 1 回減る。
+// 持ち主が active かは覚えず、取得の生死確認のクエリで毎回確かめる。nil なら覚えない
+type imageOwnerKeyCache struct {
+	mu      sync.RWMutex
+	limit   int
+	entries map[string]imageOwnerKey
+}
+
+func newImageOwnerKeyCache(limit int) *imageOwnerKeyCache {
+	return &imageOwnerKeyCache{limit: limit, entries: make(map[string]imageOwnerKey)}
+}
+
+func (c *imageOwnerKeyCache) get(imageID string) (imageOwnerKey, bool) {
+	if c == nil {
+		return imageOwnerKey{}, false
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	key, ok := c.entries[imageID]
+	return key, ok
+}
+
+// 上限を超えたら覚え直す
+func (c *imageOwnerKeyCache) set(imageID string, key imageOwnerKey) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.entries) >= c.limit {
+		c.entries = make(map[string]imageOwnerKey)
+	}
+	c.entries[imageID] = key
 }

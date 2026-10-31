@@ -40,20 +40,32 @@ func getImageHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 
 		ctx := c.Request().Context()
-		owner, err := getImageOwnerKey(ctx, h.DB, input.ImageID)
-		if errors.Is(err, sql.ErrNoRows) {
-			return NewAPIError(http.StatusForbidden, "image_forbidden")
+		owner, cachedOwner := h.ImageOwners.get(input.ImageID)
+		if cachedOwner {
+			key, err := imageSigningKey(owner.SecretKeyHash)
+			if err != nil {
+				return err
+			}
+			// 署名が合わないときは、持ち主が退会していないかを DB で確かめてから扱いを決める（退会した人の画像は不正な署名として記録しない）
+			cachedOwner = verifyImageSignature(key, input.ImageID, exp, sig)
 		}
-		if err != nil {
-			return err
-		}
-		key, err := imageSigningKey(owner.SecretKeyHash)
-		if err != nil {
-			return err
-		}
-		if !verifyImageSignature(key, input.ImageID, exp, sig) {
-			c.Set("abuse", "invalid_signature")
-			return NewAPIError(http.StatusForbidden, "image_forbidden")
+		if !cachedOwner {
+			owner, err = getImageOwnerKey(ctx, h.DB, input.ImageID)
+			if errors.Is(err, sql.ErrNoRows) {
+				return NewAPIError(http.StatusForbidden, "image_forbidden")
+			}
+			if err != nil {
+				return err
+			}
+			key, err := imageSigningKey(owner.SecretKeyHash)
+			if err != nil {
+				return err
+			}
+			if !verifyImageSignature(key, input.ImageID, exp, sig) {
+				c.Set("abuse", "invalid_signature")
+				return NewAPIError(http.StatusForbidden, "image_forbidden")
+			}
+			h.ImageOwners.set(input.ImageID, owner)
 		}
 
 		// 削除状態を毎回確認する。即時反映も5秒以内の許容範囲に含まれる。

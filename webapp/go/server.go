@@ -16,7 +16,9 @@ type HandlerContext struct {
 	Config    *Config
 	IPBans    *IPBanList
 	ImageData *ImageDataCache
-	Windows   *PostingWindowHub
+	// 画像の持ち主の鍵（image_location.go）
+	ImageOwners *imageOwnerKeyCache
+	Windows     *PostingWindowHub
 }
 
 func NewServer(config *Config) *echo.Echo {
@@ -46,11 +48,12 @@ func NewServer(config *Config) *echo.Echo {
 	}
 
 	handlerContext := &HandlerContext{
-		DB:        db,
-		Config:    config,
-		IPBans:    &IPBanList{},
-		ImageData: newImageDataCache(),
-		Windows:   newPostingWindowHub(),
+		DB:          db,
+		Config:      config,
+		IPBans:      &IPBanList{},
+		ImageData:   newImageDataCache(),
+		ImageOwners: newImageOwnerKeyCache(200000),
+		Windows:     newPostingWindowHub(),
 	}
 	// asia1 の署名の計算を europe1・america1 に頼む（image_signer.go）。ほかの台では nil
 	imageSigner = newRemoteSigner(signerPeersForRegion(config.Region))

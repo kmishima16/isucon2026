@@ -34,7 +34,7 @@ func TestGetImageWithDataCache(t *testing.T) {
 	db.MustExec(`INSERT INTO posts (id, author_id, posting_window_id, image_id, visibility, location_kind, posted_at) VALUES ('p1', 'u1', 'w1', 'img-post', 'public', 'none', now())`)
 	db.MustExec(`INSERT INTO realmojis (id, post_id, reactor_id, image_id, reaction_type, created_at) VALUES ('r1', 'p1', 'u2', 'img-moji', 'like', now())`)
 
-	h := &HandlerContext{DB: db, Config: &Config{}, ImageData: newImageDataCache()}
+	h := &HandlerContext{DB: db, Config: &Config{}, ImageData: newImageDataCache(), ImageOwners: newImageOwnerKeyCache(100)}
 	e := echo.New()
 	e.HTTPErrorHandler = APIErrorHandler
 	var abuse string
@@ -70,6 +70,10 @@ func TestGetImageWithDataCache(t *testing.T) {
 
 	code, body := get("u1", "img-post", false)
 	expect("post image", code, body, 200, "POST", "")
+	// 持ち主の鍵は 2 回目から台のメモリで確かめる。退会や削除は、下の生死確認で毎回 DB に聞く
+	if _, ok := h.ImageOwners.get("img-post"); !ok {
+		t.Fatal("owner key was not cached")
+	}
 	// 中身は 2 回目から台のメモリから返す（DB の中身を変えても前のまま）
 	db.MustExec(`UPDATE image_objects SET data = 'CHANGED' WHERE id = 'img-post'`)
 	code, body = get("u1", "img-post", false)
