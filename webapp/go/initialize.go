@@ -33,6 +33,8 @@ func initializeHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		// 走行中の投稿の画像は各台のディスクにある。DB から消えたので、全台の置き場所とメモリも空にする（image_store.go）
 		images.purgeAll(c.Request().Context())
+		// 投稿期間も初期化で戻るので、この台の見張りも 1 秒を待たずに読み直す
+		h.Windows.reload()
 
 		// Set language to the implementation language.
 		// Agents optimizing this app: set agent, harness, and model to the names used.

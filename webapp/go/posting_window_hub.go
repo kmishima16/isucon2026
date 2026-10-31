@@ -15,7 +15,9 @@ import (
 
 // 通知は投稿期間の開始で全員分を INSERT せず、台ごとに今の投稿期間を見張って、つながっている利用者に配る。
 // 全員分の INSERT は約 4900 行で 0.6 秒かかり、SSE は接続ごとに 500ms おきに DB を見ていたので、通知が 1 秒ほど遅れて投稿期間を削っていた
-const postingWindowPollInterval = 50 * time.Millisecond
+// 投稿期間の開始は asia1 が受け、そのリージョンの台へ応答の前に直接渡す（local_post_state.go の pushWindowToRegion）。初期化では内部の知らせで読み直す。
+// 見張りはその取りこぼしの保険なので、4 台が 50ms ごとに DB を読む（1 走行で約 1 万回）ほどの頻度は要らない
+const postingWindowPollInterval = time.Second
 
 var notificationNamespace = uuid.MustParse("6f1d3c52-4f0e-4b8a-9a43-0f7f3b1e2d5a")
 
@@ -41,6 +43,9 @@ type PostingWindowHub struct {
 	// その利用者だけに確かめ直させる世代（退会・リージョンの移動）。全員分を上げると、変更のたびにつながっている全員が DB を読みに行く
 	userGens map[string]uint64
 	changed  chan struct{}
+	// 初期化の後に読み直すため（reload）
+	db     *sqlx.DB
+	region string
 }
 
 func newPostingWindowHub() *PostingWindowHub {
@@ -119,6 +124,9 @@ func loadActiveWindow(ctx context.Context, db sqlx.QueryerContext, region string
 
 // poll はほかの台が開いた投稿期間と、初期化で戻った投稿期間を拾う
 func (h *PostingWindowHub) poll(db *sqlx.DB, region string) {
+	h.mu.Lock()
+	h.db, h.region = db, region
+	h.mu.Unlock()
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		window, err := loadActiveWindow(ctx, db, region)
@@ -130,4 +138,25 @@ func (h *PostingWindowHub) poll(db *sqlx.DB, region string) {
 		}
 		time.Sleep(postingWindowPollInterval)
 	}
+}
+
+// reload は、見張りの間隔を待たずに今の投稿期間を読み直す（初期化の後）
+func (h *PostingWindowHub) reload() {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	db, region := h.db, h.region
+	h.mu.Unlock()
+	if db == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	window, err := loadActiveWindow(ctx, db, region)
+	if err != nil {
+		log.Printf("failed to reload posting window: %v", err)
+		return
+	}
+	h.set(window)
 }

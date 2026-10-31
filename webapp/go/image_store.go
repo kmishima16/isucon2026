@@ -241,6 +241,8 @@ func registerImageStoreHandlers(mux *http.ServeMux) {
 		// 初期化で利用者は DB から消えるので、つながっている SSE に DB で確かめ直させる（接続のときの状態のまま通知しない）
 		if hub := localWindowHub.Load(); hub != nil {
 			hub.userChangedLocal("")
+			// 投稿期間も初期化で戻るので、見張りの 1 秒を待たずに読み直す
+			hub.reload()
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
