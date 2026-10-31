@@ -14,7 +14,6 @@ type HandlerContext struct {
 	DB     *sqlx.DB
 	Config *Config
 	IPBans *IPBanList
-	Images *ImageCache
 }
 
 func NewServer(config *Config) *echo.Echo {
@@ -42,7 +41,6 @@ func NewServer(config *Config) *echo.Echo {
 		DB:     db,
 		Config: config,
 		IPBans: &IPBanList{},
-		Images: newImageCache(),
 	}
 	e.Use(IPBanMiddleware(handlerContext))
 

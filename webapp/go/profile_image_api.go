@@ -59,7 +59,6 @@ func putProfileImageHandler(h *HandlerContext) echo.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			return err
 		}
-		h.Images.ForgetStates()
 		return c.NoContent(http.StatusNoContent)
 	}
 }
@@ -93,7 +92,6 @@ func deleteProfileImageHandler(h *HandlerContext) echo.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			return err
 		}
-		h.Images.ForgetStates()
 		return c.NoContent(http.StatusNoContent)
 	}
 }
