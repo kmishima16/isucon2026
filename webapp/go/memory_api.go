@@ -3,6 +3,8 @@ package isureal
 import (
 	"context"
 	"net/http"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -70,31 +72,58 @@ func getMemoriesByDateHandler(h *HandlerContext) echo.HandlerFunc {
 	}
 }
 
+// europe1・america1 は DB まで往復 101ms あり、投稿・RealMoji・コメントを順に読むと 3 往復かかる。
+// asia へ転送すると往復は 1 回で済むが、署名（Memories の CPU の 9 割）を詰まっている asia の台が計算することになる。
+// 自分の台で計算するため、3 つを同時に投げて 1 往復にする（ISUREAL_MEMORY_PARALLEL=1 の台だけ。asia は往復 0.4ms で得が無い）
+var memoryParallel = os.Getenv("ISUREAL_MEMORY_PARALLEL") == "1"
+
+const memoryPostConditions = `
+  AND p.author_id = $1 AND w.local_date >= $2 AND w.local_date < $3
+  AND ($4::timestamptz IS NULL OR (p.posted_at, p.id) < ($4, $5))
+  ORDER BY p.posted_at DESC, p.id DESC LIMIT 51`
+
+// RealMoji とコメントを、投稿の絞り込みを繰り返して読むための副問い合わせ。
+// 投稿とは別の時点で読むので、返す投稿に無いものは selectMemoriesAtOnce で落とす
+const memoryPostIDs = `(SELECT p.id FROM posts p JOIN posting_windows w ON w.id = p.posting_window_id
+  WHERE p.deleted_at IS NULL` + memoryPostConditions + `)`
+
 func listMemories(ctx context.Context, db sqlx.QueryerContext, userID string, start, end time.Time, beforeAt *time.Time, beforeID string) (getMemoriesResponse, error) {
 	var response getMemoriesResponse
 	if (beforeAt == nil) != (beforeID == "") {
 		return response, NewAPIError(http.StatusBadRequest, "invalid_pagination")
 	}
-	posts, err := selectPostsWithAuthor(ctx, db, `
-  AND p.author_id = $1 AND w.local_date >= $2 AND w.local_date < $3
-  AND ($4::timestamptz IS NULL OR (p.posted_at, p.id) < ($4, $5))
-  ORDER BY p.posted_at DESC, p.id DESC LIMIT 51
- `, userID, start, end, beforeAt, beforeID)
-	if err != nil {
-		return response, err
-	}
-	// 51 件目は次のページの有無を知るためだけに読むので、応答を作る前に落とし、返さない画像の署名を作らない
-	response.HasMore = len(posts) > 50
-	if response.HasMore {
-		posts = posts[:50]
-	}
-	postIDs := make([]string, len(posts))
-	for i := range posts {
-		postIDs[i] = posts[i].ID
-	}
-	reactions, comments, err := selectMemoryInteractions(ctx, db, postIDs)
-	if err != nil {
-		return response, err
+	var posts []PostWithAuthor
+	var reactions []RealMojiWithReactor
+	var comments []CommentWithAuthor
+	var err error
+	if memoryParallel {
+		posts, reactions, comments, err = selectMemoriesAtOnce(ctx, db, userID, start, end, beforeAt, beforeID)
+		if err != nil {
+			return response, err
+		}
+		response.HasMore = len(posts) > 50
+		if response.HasMore {
+			posts = posts[:50]
+		}
+		reactions, comments = keepMemoryInteractions(posts, reactions, comments)
+	} else {
+		posts, err = selectPostsWithAuthor(ctx, db, memoryPostConditions, userID, start, end, beforeAt, beforeID)
+		if err != nil {
+			return response, err
+		}
+		// 51 件目は次のページの有無を知るためだけに読むので、応答を作る前に落とし、返さない画像の署名を作らない
+		response.HasMore = len(posts) > 50
+		if response.HasMore {
+			posts = posts[:50]
+		}
+		postIDs := make([]string, len(posts))
+		for i := range posts {
+			postIDs[i] = posts[i].ID
+		}
+		reactions, comments, err = selectMemoryInteractions(ctx, db, postIDs)
+		if err != nil {
+			return response, err
+		}
 	}
 	// 署名する画像を先に集め、europe1・america1 にまとめて頼む（image_signer.go）。asia1 の CPU の 3 割が Memories の署名だった
 	prefetchImageSignatures(ctx, memorySignJobs(posts, reactions, comments))
@@ -132,6 +161,55 @@ func selectMemoryInteractions(ctx context.Context, db sqlx.QueryerContext, postI
 		return nil, nil, err
 	}
 	return reactions, comments, nil
+}
+
+func selectMemoriesAtOnce(ctx context.Context, db sqlx.QueryerContext, userID string, start, end time.Time, beforeAt *time.Time, beforeID string) ([]PostWithAuthor, []RealMojiWithReactor, []CommentWithAuthor, error) {
+	var posts []PostWithAuthor
+	var reactions []RealMojiWithReactor
+	var comments []CommentWithAuthor
+	var postsErr, reactionsErr, commentsErr error
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		defer wg.Done()
+		posts, postsErr = selectPostsWithAuthor(ctx, db, memoryPostConditions, userID, start, end, beforeAt, beforeID)
+	}()
+	go func() {
+		defer wg.Done()
+		reactions, reactionsErr = selectCurrentRealMojis(ctx, db, `AND r.post_id IN `+memoryPostIDs+` ORDER BY r.created_at DESC, r.id DESC`, userID, start, end, beforeAt, beforeID)
+	}()
+	go func() {
+		defer wg.Done()
+		comments, commentsErr = selectCommentsWithAuthor(ctx, db, `AND c.post_id IN `+memoryPostIDs+` ORDER BY c.created_at, c.id`, userID, start, end, beforeAt, beforeID)
+	}()
+	wg.Wait()
+	for _, err := range []error{postsErr, reactionsErr, commentsErr} {
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	return posts, reactions, comments, nil
+}
+
+// 返す投稿（50 件まで）のものだけを、並びを保って残す。同時に読んだ分は、51 件目や読む間に消えた投稿のものを含みうる
+func keepMemoryInteractions(posts []PostWithAuthor, reactions []RealMojiWithReactor, comments []CommentWithAuthor) ([]RealMojiWithReactor, []CommentWithAuthor) {
+	returned := make(map[string]bool, len(posts))
+	for _, post := range posts {
+		returned[post.ID] = true
+	}
+	keptReactions := reactions[:0]
+	for _, reaction := range reactions {
+		if returned[reaction.PostID] {
+			keptReactions = append(keptReactions, reaction)
+		}
+	}
+	keptComments := comments[:0]
+	for _, comment := range comments {
+		if returned[comment.PostID] {
+			keptComments = append(keptComments, comment)
+		}
+	}
+	return keptReactions, keptComments
 }
 
 // 組み立てで署名する画像と同じものを、同じ上限（1 投稿に RealMoji・コメント 50 件まで）で集める
