@@ -48,7 +48,7 @@ func getFeedHandler(h *HandlerContext) echo.HandlerFunc {
 			return NewAPIError(http.StatusBadRequest, "invalid_pagination")
 		}
 		ctx := c.Request().Context()
-		viewer, err := loadViewerContext(ctx, h.DB, GetSession(c).UserID)
+		viewer, err := loadViewerContext(ctx, h.ReadDB, GetSession(c).UserID)
 		if errors.Is(err, sql.ErrNoRows) {
 			return c.JSON(http.StatusOK, getFeedResponse{Items: []feedItemResponse{}})
 		}
@@ -59,13 +59,13 @@ func getFeedHandler(h *HandlerContext) echo.HandlerFunc {
 		if ranked {
 			beforePostedAt, beforeID = nil, ""
 		}
-		candidates, err := selectFeedCandidates(ctx, h.DB, viewer, input.Feed, beforePostedAt, beforeID)
+		candidates, err := selectFeedCandidates(ctx, h.ReadDB, viewer, input.Feed, beforePostedAt, beforeID)
 		if err != nil {
 			return err
 		}
 		var scores map[string]int64
 		if ranked {
-			if scores, err = recommendationScores(ctx, h.DB, viewer, candidates); err != nil {
+			if scores, err = recommendationScores(ctx, h.ReadDB, viewer, candidates); err != nil {
 				return err
 			}
 			sort.SliceStable(candidates, func(i, j int) bool {

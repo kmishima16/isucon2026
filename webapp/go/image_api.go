@@ -48,7 +48,7 @@ func getImageHandler(h *HandlerContext) echo.HandlerFunc {
 			}
 		}
 		// 削除状態を毎回確認する。即時反映も5秒以内の許容範囲に含まれる
-		object, err := getServableImage(ctx, h.DB, input.ImageID, haveData)
+		object, err := getServableImage(ctx, h.ReadDB, input.ImageID, haveData)
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewAPIError(http.StatusForbidden, "image_forbidden")
 		}

@@ -19,13 +19,13 @@ func exportPostsHandler(h *HandlerContext) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		ctx := c.Request().Context()
 		userID := GetSession(c).UserID
-		author, err := getUser(ctx, h.DB, userID)
+		author, err := getUser(ctx, h.ReadDB, userID)
 		if err != nil {
 			return err
 		}
 		// 画像の中身は、この台が持っていれば DB から読まない（image_data_cache.go）。エクスポートは 1 人の全投稿の画像を読み、DB の読み込みの上位だった
 		var imageIDs []string
-		if err := h.DB.SelectContext(ctx, &imageIDs, `SELECT image_id FROM posts WHERE author_id = $1 AND deleted_at IS NULL`, userID); err != nil {
+		if err := h.ReadDB.SelectContext(ctx, &imageIDs, `SELECT image_id FROM posts WHERE author_id = $1 AND deleted_at IS NULL`, userID); err != nil {
 			return err
 		}
 		cached := make(map[string][]byte, len(imageIDs))
@@ -53,7 +53,7 @@ func exportPostsHandler(h *HandlerContext) echo.HandlerFunc {
 		// 363 件の人で、読む 5100 ブロックのうち 8 割ほどが、中身を使わない image_objects（36 区画）と image_object_locations の分だった
 		allLocal := len(cached) == len(imageIDs)
 		if allLocal {
-			if err := h.DB.SelectContext(ctx, &posts, `
+			if err := h.ReadDB.SelectContext(ctx, &posts, `
    SELECT `+postColumns+`
    FROM posts p
    CROSS JOIN LATERAL (SELECT on_time_deadline, ended_at FROM posting_windows w WHERE w.id = p.posting_window_id OFFSET 0) w
@@ -75,7 +75,7 @@ func exportPostsHandler(h *HandlerContext) echo.HandlerFunc {
 		// OFFSET 0 で結合の形を変えさせず、投稿ごとに期間を主キーで 1 行引く
 		if !allLocal {
 			posts = posts[:0]
-			if err := h.DB.SelectContext(ctx, &posts, `
+			if err := h.ReadDB.SelectContext(ctx, &posts, `
    SELECT `+postColumns+`, CASE WHEN i.id = ANY($2) THEN NULL ELSE i.data END AS image_data, l.host AS image_host
    FROM posts p
    CROSS JOIN LATERAL (SELECT on_time_deadline, ended_at FROM posting_windows w WHERE w.id = p.posting_window_id OFFSET 0) w

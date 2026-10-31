@@ -22,6 +22,10 @@ type Config struct {
 	// （reset.sql はセッション単位の SET を使うので、transaction モードの pgbouncer を通せない）
 	DBPoolHost string
 	DBPoolPort string
+	// asia1 だけ、読みだけのハンドラーを同じ台の同期の複製に回す（asia2 の DB の CPU が全体の天井だった）。
+	// asia2 のコミットは複製が反映するまで待つ（remote_apply）ので、どの台で書いても直後の読みに結果が見える
+	DBReadHost string
+	DBReadPort string
 }
 
 func ConfigFromEnv() *Config {
@@ -37,7 +41,21 @@ func ConfigFromEnv() *Config {
 		DBSSLMode:  envOrDefault("ISUREAL_DB_SSLMODE", ""),
 		DBPoolHost: envOrDefault("ISUREAL_DB_POOL_HOST", ""),
 		DBPoolPort: envOrDefault("ISUREAL_DB_POOL_PORT", ""),
+		DBReadHost: envOrDefault("ISUREAL_DB_READ_HOST", ""),
+		DBReadPort: envOrDefault("ISUREAL_DB_READ_PORT", "5432"),
 	}
+}
+
+// 複製は同じ台にあるので、TLS も文の準備の省略も要らない
+func (c *Config) DatabaseReadDSN() string {
+	u := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(c.DBUser, c.DBPassword),
+		Host:     net.JoinHostPort(c.DBReadHost, c.DBReadPort),
+		Path:     "/" + c.DBName,
+		RawQuery: "sslmode=disable",
+	}
+	return u.String()
 }
 
 func (c *Config) DatabaseDSN() string {

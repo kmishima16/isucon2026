@@ -1,0 +1,29 @@
+#!/bin/bash
+# asia1 に asia2 の同期の読み取り用の複製を作る。人が 1 回だけ root で実行する。
+# asia1 の古い DB の写し（AMI のまま使っていない約 17GB、/var/lib/postgresql/16/main）を消して置き換えるので、実行の前に人間に確かめる。
+# 順番：このコミットを deploy（asia2 の pg_hba.conf が入る。ほかは有効にするまで何も変わらない）→ このスクリプト →
+# asia2 で追いついたのを確かめる → asia2 の isu-zz-replica.conf と asia1 の isureal-go の isu-replica.conf の # を外して deploy
+set -euo pipefail
+PRIMARY=192.168.4.10
+DATA=/var/lib/postgresql/16/main
+
+if [ -f "$DATA/standby.signal" ]; then
+  echo "すでに複製です。作り直すときは standby.signal を消してから実行する"
+  exit 0
+fi
+
+# アプリと同じ利用者で WAL を受け取る（isureal は superuser）。パスワードは複製の postgresql.auto.conf にだけ残る
+# shellcheck disable=SC1091
+. /home/isucon/env.sh
+
+systemctl stop postgresql
+rm -rf "$DATA"
+install -d -o postgres -g postgres -m 700 "$DATA"
+# -R：primary_conninfo と standby.signal を書く。-C -S：asia2 にスロットを作り、複製が止まっている間の WAL を残す
+runuser -u postgres -- pg_basebackup \
+  -d "host=$PRIMARY port=5432 user=$ISUREAL_DB_USER password=$ISUREAL_DB_PASSWORD application_name=asia1 sslmode=disable" \
+  -D "$DATA" -X stream -R -C -S asia1 -P
+systemctl enable --now postgresql
+
+echo "asia2 で追いついたかを確かめる："
+echo "  sudo -u postgres psql -c \"SELECT application_name, state, sync_state, replay_lag FROM pg_stat_replication\""

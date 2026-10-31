@@ -17,7 +17,9 @@ import (
 )
 
 type HandlerContext struct {
-	DB        *sqlx.DB
+	DB *sqlx.DB
+	// 読みだけのハンドラーが使う。複製の無い台では DB と同じ
+	ReadDB    *sqlx.DB
 	Config    *Config
 	IPBans    *IPBanList
 	ImageData *ImageDataCache
@@ -65,9 +67,23 @@ func NewServer(config *Config) *echo.Echo {
 	if keepConns {
 		go openAllConns(db, maxConns)
 	}
+	readDB := db
+	if config.DBReadHost != "" {
+		readDB, err = sqlx.Open("pgx", config.DatabaseReadDSN())
+		if err != nil {
+			panic("failed to open read replica: " + err.Error())
+		}
+		readConns, err := strconv.Atoi(envOrDefault("ISUREAL_DB_READ_MAX_CONNS", "30"))
+		if err != nil || readConns <= 0 {
+			panic("invalid ISUREAL_DB_READ_MAX_CONNS")
+		}
+		readDB.SetMaxOpenConns(readConns)
+		readDB.SetMaxIdleConns(readConns)
+	}
 
 	handlerContext := &HandlerContext{
 		DB:        db,
+		ReadDB:    readDB,
 		Config:    config,
 		IPBans:    &IPBanList{},
 		ImageData: newImageDataCache(),

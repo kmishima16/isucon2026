@@ -151,13 +151,13 @@ func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 		if h.SearchUsers != nil {
 			// 利用者の写しで照合する（search_snapshot.go）
 			var err error
-			if matched, err = h.SearchUsers.search(ctx, h.DB, viewer, query, beforeUsername, beforeID, limit); err != nil {
+			if matched, err = h.SearchUsers.search(ctx, h.ReadDB, viewer, query, beforeUsername, beforeID, limit); err != nil {
 				return err
 			}
 		}
 	scan:
 		for h.SearchUsers == nil {
-			users, err := selectSearchUsers(ctx, h.DB, viewer, query, limit, beforeUsername, beforeID)
+			users, err := selectSearchUsers(ctx, h.ReadDB, viewer, query, limit, beforeUsername, beforeID)
 			if err != nil {
 				return err
 			}
@@ -213,21 +213,21 @@ func getUserHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		ctx := c.Request().Context()
 		viewer := GetSession(c).UserID
-		user, err := getUser(ctx, h.DB, input.UserID)
+		user, err := getUser(ctx, h.ReadDB, input.UserID)
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewAPIError(http.StatusNotFound, "relationship_not_found")
 		}
 		if err != nil {
 			return err
 		}
-		blocked, err := isBlocked(ctx, h.DB, viewer, user.ID)
+		blocked, err := isBlocked(ctx, h.ReadDB, viewer, user.ID)
 		if err != nil {
 			return err
 		}
 		if blocked {
 			return NewAPIError(http.StatusNotFound, "relationship_not_found")
 		}
-		friends, err := getFriendIDs(ctx, h.DB, viewer)
+		friends, err := getFriendIDs(ctx, h.ReadDB, viewer)
 		if err != nil {
 			return err
 		}
