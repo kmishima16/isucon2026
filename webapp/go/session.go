@@ -22,8 +22,6 @@ type Session struct {
 	UserID    string    `db:"user_id"`
 	TokenHash string    `db:"token_hash"`
 	CreatedAt time.Time `db:"created_at"`
-	// SSE で、投稿期間の開始の後に登録した人かを、開始の瞬間に DB に聞かずに確かめるため（notification_api.go）
-	UserCreatedAt time.Time `db:"user_created_at" json:"-"`
 }
 
 func GetSession(c *echo.Context) *Session {
@@ -53,7 +51,7 @@ func getSessionFromHeader(c *echo.Context, db *sqlx.DB) (*Session, error) {
 	}
 	var session Session
 	err := db.GetContext(c.Request().Context(), &session, `
-		SELECT s.user_id, s.token_hash, s.created_at, u.region, u.created_at AS user_created_at
+		SELECT s.user_id, s.token_hash, s.created_at, u.region
 		FROM login_sessions s JOIN users u ON u.id = s.user_id
 		WHERE s.token_hash = $1
 		  AND s.active = true AND u.status = 'active'

@@ -27,9 +27,6 @@ func getNotificationsHandler(h *HandlerContext) echo.HandlerFunc {
 		// どの台の時計も Amazon Time Sync に合わせてあり、DB の台とのずれは 1ms 未満（chronyc tracking）
 		connectedAt := time.Now()
 		_, checkedUserGen, _ := h.Windows.snapshot()
-		// 投稿期間の開始の瞬間に、つながっている全員が DB を読みに行くと、asia では数百本が一度に DB に向かっていた。
-		// セッションを確かめたときに読んだ登録の時刻とリージョンを使い、接続の後にこの台で利用者が変わったときと、登録の時刻を持っていないときだけ DB で確かめる
-		recipientRegion, recipientCreatedAt := session.Region, session.UserCreatedAt
 		response := c.Response()
 		response.Header().Set("Content-Type", "text/event-stream")
 		response.WriteHeader(http.StatusOK)
@@ -41,26 +38,24 @@ func getNotificationsHandler(h *HandlerContext) echo.HandlerFunc {
 			window, userGen, changed := h.Windows.snapshot()
 			due := window != nil && window.Region == session.Region && window.StartsAt.After(connectedAt)
 			if due || userGen != checkedUserGen {
-				if userGen != checkedUserGen || recipientCreatedAt.IsZero() {
-					var recipient struct {
-						Region    string    `db:"region"`
-						CreatedAt time.Time `db:"created_at"`
-					}
-					err := h.DB.GetContext(ctx, &recipient, `SELECT region, created_at FROM users WHERE id = $1 AND status = 'active'`, userID)
-					if err != nil {
-						if !errors.Is(err, sql.ErrNoRows) && ctx.Err() == nil {
-							c.Logger().Error("failed to get notification recipient", "error", err)
-						}
-						return nil
-					}
-					recipientRegion, recipientCreatedAt = recipient.Region, recipient.CreatedAt
+				// 開始のたびに DB で確かめる。ほかの台での退会やリージョンの移動は、この台の userGen では拾えない
+				var recipient struct {
+					Region    string    `db:"region"`
+					CreatedAt time.Time `db:"created_at"`
 				}
-				if recipientRegion != session.Region {
+				err := h.DB.GetContext(ctx, &recipient, `SELECT region, created_at FROM users WHERE id = $1 AND status = 'active'`, userID)
+				if err != nil {
+					if !errors.Is(err, sql.ErrNoRows) && ctx.Err() == nil {
+						c.Logger().Error("failed to get notification recipient", "error", err)
+					}
+					return nil
+				}
+				if recipient.Region != session.Region {
 					return nil
 				}
 				checkedUserGen = userGen
 				// 投稿期間の開始より後に登録した利用者には、その投稿期間の通知を作っていなかった
-				if due && !recipientCreatedAt.After(window.StartsAt) {
+				if due && !recipient.CreatedAt.After(window.StartsAt) {
 					data, err := json.Marshal(getNotificationsResponse{
 						ID: notificationID(userID, window.ID), PostingWindowID: window.ID, Region: window.Region, CreatedAt: window.StartsAt,
 					})
