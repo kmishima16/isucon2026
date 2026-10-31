@@ -24,8 +24,10 @@ if [ "$SLOW_LOG_KIND" = pg ]; then
   elif rsh "$DB_HOST" "sudo test -s $SLOW_LOG"; then
     raw="$(mktemp)"
     rsh "$DB_HOST" "sudo gzip -c $SLOW_LOG" | gunzip >"$raw"
-    bash "$ROOT/scripts/slp-pg.sh" "$ROOT/.tools/slp-bin" "$SLOW_LOG_PREFIX" pg --bundle-where-in --bundle-values --sort sum-query-time -r --limit 30 --format tsv --file "$raw" >"$LOG_DIR/$T-slow.txt"
-    rm -f "$raw"
+    bash "$ROOT/scripts/slp-pg.sh" "$ROOT/.tools/slp-bin" "$SLOW_LOG_PREFIX" pg --bundle-where-in --bundle-values --sort sum-query-time -r --limit 5000 --format tsv --file "$raw" >"$raw.out"
+    # slp の --limit は表示の件数ではなく、まとめたクエリの種類の上限（超えるとエラーで止まる）。表示は head で絞る
+    head -n 31 "$raw.out" >"$LOG_DIR/$T-slow.txt"
+    rm -f "$raw" "$raw.out"
     head -n 25 "$LOG_DIR/$T-slow.txt"
   else
     warn "$SLOW_LOG が空です（log_min_duration_statement が無効か、ログの場所が違う）"

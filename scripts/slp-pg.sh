@@ -20,12 +20,18 @@ done
 
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
-# 行頭が日時（%m）の行が 1 件の始まり。それ以外は前の行の続き（複数行の SQL）
+# 行頭が日時（%m）の行が 1 件の始まり。それ以外は前の行の続き（複数行の SQL）。
+# slp pg は 1 件を 1 行でしか読まず、続きの行にある SQL を落とす（アプリの SQL はほとんど複数行）ので、続きを 1 行につなぐ
 awk '
+  function flush() { if (rec != "" && !skip) print rec; rec = "" }
   /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] / {
+    flush()
     skip = ($0 ~ /duration: [0-9.]+ ms  (parse|bind) [^:]*: /)
     if (!skip) sub(/ ms  execute [^:]*: /, " ms  statement: ")
+    rec = $0
+    next
   }
-  !skip { print }
+  { sub(/^[ \t]+/, ""); rec = rec " " $0 }
+  END { flush() }
 ' "$file" >"$tmp"
 "$real" pg --log-line-prefix "$prefix" "${args[@]}" --file "$tmp"

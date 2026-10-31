@@ -20,7 +20,7 @@
 
 ## 確かめ方
 
-- alp の表・pt-query-digest の Profile・「[台] リソース」の 3 つが出る。`SLOW_LOG_KIND="pg"` では、pt-query-digest の代わりに slp pg の表（合計時間の降順、tsv）が `logs/<時刻>-slow.txt` に出る。ログを手元に持ってきて、`.tools/slp-bin`（make pp-up が入れる）で集計する。
+- alp の表・pt-query-digest の Profile・「[台] リソース」の 3 つが出る。`SLOW_LOG_KIND="pg"` では、pt-query-digest の代わりに slp pg の表（合計時間の降順、tsv）が `logs/<時刻>-slow.txt` に出る。ログを手元に持ってきて、`.tools/slp-bin`（make pp-up が入れる）で集計する。slp の `--limit` は表示の件数ではなく、まとめたクエリの種類の上限で、超えるとエラーで止まる。なので大きく取り、表示は head で絞る。
 - 「[台] リソース」の vmstat の行は、id が 90% 未満の最初の秒から最後の秒までの平均で、間のアイドルも含む。走行前の整合性チェックが長い問題では、初期化から走行の始まりまでの空きが入り、CPU が空いて見える。CPU の空きは、`logs/<時刻>-<台>/vmstat.txt` の負荷の区間の毎秒の行で見る。
 - 「/tmp/isu-measure が無い」と出たら、prebench の後にサーバーを再起動している。もう一度 bench する。
 - pprof が取れないときは、`make measure-show` でアプリが pprof を待ち受けているかを見る（docs/kit/measure.md）。
