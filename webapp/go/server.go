@@ -35,6 +35,8 @@ func NewServer(config *Config) *echo.Echo {
 		panic("failed to open database: " + err.Error())
 	}
 	db.SetMaxOpenConns(30)
+	// 既定では待機させる接続が 2 本だけで、負荷の山のたびに残りを閉じては張り直していた（PostgreSQL のプロセスの起動と認証が毎回 DB の CPU を使い、遠い台では往復も重なる）
+	db.SetMaxIdleConns(30)
 	err = db.Ping()
 	if err != nil {
 		panic("failed to ping database: " + err.Error())
