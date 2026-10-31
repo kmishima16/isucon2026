@@ -67,12 +67,16 @@ const servableImageColumns = `u.secret_key_hash, i.created_at, %s AS host, i.med
     CASE WHEN $2 OR %s IS NOT NULL THEN NULL ELSE i.data END AS data`
 
 var (
+	// 区画の時刻を結合の値（i.created_at = l.created_at）で渡すと区画が絞れず、今月の画像では約 27 の区画の索引を順に引いていた（DB の時間の 1 位）。
+	// 副問い合わせの値にすると、実行の始めに 1 区画に絞れる（1 回 75 → 16 バッファ）。往復は 1 回のまま
 	servableImageLocated = `
   SELECT ` + fmt.Sprintf(servableImageColumns, "l.host", "l.host") + `
   FROM image_object_locations l
-  JOIN image_objects i ON i.id = l.id AND i.created_at = l.created_at
+  JOIN image_objects i ON i.id = l.id
   JOIN users u ON u.id = i.owner_user_id
-  WHERE l.id = $1 AND u.status = 'active'`
+  WHERE l.id = $1 AND i.id = $1
+    AND i.created_at = (SELECT l2.created_at FROM image_object_locations l2 WHERE l2.id = $1)
+    AND u.status = 'active'`
 	servableImageLegacy = `
   SELECT ` + fmt.Sprintf(servableImageColumns, "NULL::text", "NULL::text") + `
   FROM image_objects i JOIN users u ON u.id = i.owner_user_id
