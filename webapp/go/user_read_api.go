@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/labstack/echo/v5"
 	"golang.org/x/text/cases"
@@ -27,6 +28,44 @@ func normalizeSearchText(value string) string {
 	return norm.NFC.String(cases.Fold().String(norm.NFC.String(value)))
 }
 
+// 検索のたびに全員の username と display_name を正規化していて、asia の CPU の 1 割を使っていた。
+// 同じ文字列は必ず同じ結果になるので、台ごとのメモリに覚えておく（台の間で食い違わず、初期化で消す必要もない）
+type searchTextMemo struct {
+	mu      sync.RWMutex
+	limit   int
+	entries map[string]string
+}
+
+func newSearchTextMemo(limit int) *searchTextMemo {
+	return &searchTextMemo{limit: limit, entries: make(map[string]string)}
+}
+
+// 登録や名前の変更で古い文字列が残り続けるので、上限を超えたら覚え直す
+var searchTexts = newSearchTextMemo(200000)
+
+func (m *searchTextMemo) normalize(value string) string {
+	m.mu.RLock()
+	normalized, ok := m.entries[value]
+	m.mu.RUnlock()
+	if ok {
+		return normalized
+	}
+	normalized = normalizeSearchText(value)
+	m.mu.Lock()
+	if len(m.entries) >= m.limit {
+		m.entries = make(map[string]string)
+	}
+	m.entries[value] = normalized
+	m.mu.Unlock()
+	return normalized
+}
+
+type searchCandidate struct {
+	ID          string `db:"id"`
+	Username    string `db:"username"`
+	DisplayName string `db:"display_name"`
+}
+
 func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		var input searchUsersRequest
@@ -41,8 +80,17 @@ func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		ctx := c.Request().Context()
 		viewer := GetSession(c).UserID
-		var users []User
-		if err := h.DB.SelectContext(ctx, &users, `SELECT `+strings.Join(userColumns, ", ")+` FROM users WHERE status='active' AND id<>$1 AND ($2='' OR (username,id)>($2,$3)) ORDER BY username, id`, viewer, input.BeforeUsername, input.BeforeID); err != nil {
+		// 有効なユーザー全員を全列で読んで並べ替えていて、1 回 82ms かかっていた。照合に要る 3 列だけを
+		// sql/003_users_search.sql のインデックスから並んだまま読む。カーソルの有無で SQL を分けるのは、
+		// ($2='' OR ...) の形だと、使い回す実行計画がインデックスを使わず全件を並べ替えるため
+		var candidates []searchCandidate
+		var err error
+		if input.BeforeUsername == "" {
+			err = h.DB.SelectContext(ctx, &candidates, `SELECT id, username, display_name FROM users WHERE status='active' AND id<>$1 ORDER BY username, id`, viewer)
+		} else {
+			err = h.DB.SelectContext(ctx, &candidates, `SELECT id, username, display_name FROM users WHERE status='active' AND id<>$1 AND (username,id)>($2,$3) ORDER BY username, id`, viewer, input.BeforeUsername, input.BeforeID)
+		}
+		if err != nil {
 			return err
 		}
 		blocked, err := getBlockedUserIDs(ctx, h.DB, viewer)
@@ -50,23 +98,42 @@ func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 			return err
 		}
 		query := normalizeSearchText(input.Q)
-		items := make([]relationshipUserResponse, 0)
-		for _, user := range users {
-			if !strings.Contains(normalizeSearchText(user.Username), query) && !strings.Contains(normalizeSearchText(user.DisplayName), query) {
+		ids := make([]string, 0, 51)
+		for _, candidate := range candidates {
+			if !strings.Contains(searchTexts.normalize(candidate.Username), query) && !strings.Contains(searchTexts.normalize(candidate.DisplayName), query) {
 				continue
 			}
-			if blocked[user.ID] {
+			if blocked[candidate.ID] {
 				continue
 			}
-			if err := user.setImageKey(); err != nil {
+			ids = append(ids, candidate.ID)
+			if len(ids) == 51 {
+				break
+			}
+		}
+		items := make([]relationshipUserResponse, 0, len(ids))
+		if len(ids) > 0 {
+			var users []User
+			if err := h.DB.SelectContext(ctx, &users, `SELECT `+strings.Join(userColumns, ", ")+` FROM users WHERE id = ANY($1) AND status='active'`, ids); err != nil {
 				return err
 			}
-			if user.AccountType != "certified_public" {
-				user.Bio = ""
+			byID := make(map[string]User, len(users))
+			for _, user := range users {
+				byID[user.ID] = user
 			}
-			items = append(items, newRelationshipUserResponse(user))
-			if len(items) == 51 {
-				break
+			for _, id := range ids {
+				// 2 回の読み取りの間に退会したユーザーは出さない
+				user, ok := byID[id]
+				if !ok {
+					continue
+				}
+				if err := user.setImageKey(); err != nil {
+					return err
+				}
+				if user.AccountType != "certified_public" {
+					user.Bio = ""
+				}
+				items = append(items, newRelationshipUserResponse(user))
 			}
 		}
 		hasMore := len(items) > 50
