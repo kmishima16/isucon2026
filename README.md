@@ -16,7 +16,7 @@
 - [検証役 /isu-local](.claude/skills/isu-local/SKILL.md)：手元の docker 環境で画面を巡り、画面ごとに呼ぶ API とスクリーンショットを調査役に渡す。
 - [reviewer](.claude/agents/reviewer.md)：施策の diff を敵対的にレビューする。
 - [doc-writer](.claude/agents/doc-writer.md)：overview と retro を書く。
-- [issue のテンプレート](.github/ISSUE_TEMPLATE/kaizen.md)：持ち越す改善項目（経緯・わかったこと・原因・完了の条件）。
+- [issue のテンプレート](.github/ISSUE_TEMPLATE/kaizen.md)：持ち越す改善項目（経緯・わかったこと・原因・完了の条件・閉じる条件）。
 
 ## 場面ごとの手順
 
