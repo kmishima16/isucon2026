@@ -60,7 +60,8 @@ func isLowPriority(method, path string) bool {
 func LowPriorityLimitMiddleware(l *lowPriorityLimiter) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			if l == nil || !isLowPriority(c.Request().Method, c.Request().URL.Path) {
+			// europe1・america1 から転送された閲覧は、欧米の翌日の人数が応答の速さで決まるので絞らない（asia1 の nginx が外からのこの値を消す）
+			if l == nil || c.Request().Header.Get(proxiedRegionHeader) != "" || !isLowPriority(c.Request().Method, c.Request().URL.Path) {
 				return next(c)
 			}
 			timer := time.NewTimer(l.wait)
