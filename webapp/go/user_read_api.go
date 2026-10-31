@@ -1,13 +1,16 @@
 package isureal
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
@@ -66,6 +69,58 @@ type searchCandidate struct {
 	DisplayName string `db:"display_name"`
 }
 
+// 有効なユーザー全員を全列で読んで並べ替えていて、1 回 82ms かかっていた。照合に要る 3 列だけを
+// sql/003_users_search.sql のインデックスから並んだまま読む。カーソルの有無で SQL を分けるのは、
+// ($2=” OR ...) の形だと、使い回す実行計画がインデックスを使わず全件を並べ替えるため。
+// 約 5000 行を 1 行ずつ受け取って詰めるだけで asia1 の CPU の 2 割を使っていたので、全員分を「バイト数:中身」の並びの
+// 1 つの文字列にまとめて受け取る。表示名にはどんな文字も入るので、区切り文字ではなく長さで切る
+const searchCandidatesPacked = `SELECT coalesce(string_agg(octet_length(id) || ':' || id || octet_length(username) || ':' || username || octet_length(display_name) || ':' || display_name, '' ORDER BY username, id), '') FROM users WHERE status='active' AND id<>$1`
+
+func selectSearchCandidates(ctx context.Context, db sqlx.QueryerContext, viewer, beforeUsername, beforeID string) ([]searchCandidate, error) {
+	var packed string
+	var err error
+	if beforeUsername == "" {
+		err = sqlx.GetContext(ctx, db, &packed, searchCandidatesPacked, viewer)
+	} else {
+		err = sqlx.GetContext(ctx, db, &packed, searchCandidatesPacked+` AND (username,id)>($2,$3)`, viewer, beforeUsername, beforeID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return parseSearchCandidates(packed)
+}
+
+var errMalformedSearchCandidates = errors.New("malformed search candidates")
+
+// 切り出した値は packed を共有するので、1 人ごとにメモリを確保しない
+func parseSearchCandidates(packed string) ([]searchCandidate, error) {
+	candidates := make([]searchCandidate, 0, len(packed)/48)
+	rest := packed
+	next := func() (string, bool) {
+		colon := strings.IndexByte(rest, ':')
+		if colon <= 0 {
+			return "", false
+		}
+		n, err := strconv.Atoi(rest[:colon])
+		if err != nil || n < 0 || colon+1+n > len(rest) {
+			return "", false
+		}
+		value := rest[colon+1 : colon+1+n]
+		rest = rest[colon+1+n:]
+		return value, true
+	}
+	for rest != "" {
+		id, ok1 := next()
+		username, ok2 := next()
+		displayName, ok3 := next()
+		if !ok1 || !ok2 || !ok3 {
+			return nil, errMalformedSearchCandidates
+		}
+		candidates = append(candidates, searchCandidate{ID: id, Username: username, DisplayName: displayName})
+	}
+	return candidates, nil
+}
+
 func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		var input searchUsersRequest
@@ -80,16 +135,7 @@ func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		ctx := c.Request().Context()
 		viewer := GetSession(c).UserID
-		// 有効なユーザー全員を全列で読んで並べ替えていて、1 回 82ms かかっていた。照合に要る 3 列だけを
-		// sql/003_users_search.sql のインデックスから並んだまま読む。カーソルの有無で SQL を分けるのは、
-		// ($2='' OR ...) の形だと、使い回す実行計画がインデックスを使わず全件を並べ替えるため
-		var candidates []searchCandidate
-		var err error
-		if input.BeforeUsername == "" {
-			err = h.DB.SelectContext(ctx, &candidates, `SELECT id, username, display_name FROM users WHERE status='active' AND id<>$1 ORDER BY username, id`, viewer)
-		} else {
-			err = h.DB.SelectContext(ctx, &candidates, `SELECT id, username, display_name FROM users WHERE status='active' AND id<>$1 AND (username,id)>($2,$3) ORDER BY username, id`, viewer, input.BeforeUsername, input.BeforeID)
-		}
+		candidates, err := selectSearchCandidates(ctx, h.DB, viewer, input.BeforeUsername, input.BeforeID)
 		if err != nil {
 			return err
 		}
