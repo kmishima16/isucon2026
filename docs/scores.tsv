@@ -39,3 +39,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-151641	ab6d319	true	94267	chore: 計測を外す	締め：計測を外した状態の 2 回目	
 20261031-155626	b16dc30	true	92525	chore: 計測を戻す	europe・america の調査用（計測あり）	
 20261031-162559	55042b9	true	91969	perf: 友達申請の承認・拒否・取り下げとフォローを DB の関数 1 往復にし、europe・america の新しい人の投稿を間に合わせる	europe・america の承認とフォローが 1 往復になり、新しい人が間に合って翌日も増える	
+20261031-163117	e0cabdd	true	57161	perf: 友達フィードの DB の往復を 6 回から 2 回にまとめる (#11)	europe・america のセッションの写しと友達フィードの往復まとめで、新しい人が増える	
