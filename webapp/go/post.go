@@ -101,6 +101,9 @@ type viewerContext struct {
 }
 
 func loadViewerContext(ctx context.Context, db sqlx.QueryerContext, viewerID string) (viewerContext, error) {
+	if viewerOneQuery {
+		return loadViewerContextOneQuery(ctx, db, viewerID)
+	}
 	viewer := viewerContext{Friends: map[string]bool{}, FriendsOfFriends: map[string]bool{}, MutualFriends: map[string]int{}}
 	var err error
 	if viewer.User, err = getUser(ctx, db, viewerID); err != nil {
