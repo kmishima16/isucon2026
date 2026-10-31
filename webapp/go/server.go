@@ -1,8 +1,12 @@
 package isureal
 
 import (
+	"context"
+	"database/sql"
+	"log"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -46,9 +50,18 @@ func NewServer(config *Config) *echo.Echo {
 	db.SetMaxIdleConns(maxConns)
 	// 3 台が 30 本ずつ持ち続けると max_connections 100 の残りが数本になり、初期化の psql が too many clients で落ちうる。空いた接続は 1 分で返す
 	db.SetConnMaxIdleTime(1 * time.Minute)
+	// DB まで 1 往復 100ms の europe1・america1 では、ベンチの合間に閉じた接続を負荷の始めに張り直すと、TCP と認証で数往復かかる。
+	// 本数は台ごとに決めて max_connections に収めてあるので（server/<台>/）、閉じずに持ち続け、起動時に全部開いておく
+	keepConns := envOrDefault("ISUREAL_DB_KEEP_CONNS", "") == "1"
+	if keepConns {
+		db.SetConnMaxIdleTime(0)
+	}
 	err = db.Ping()
 	if err != nil {
 		panic("failed to ping database: " + err.Error())
+	}
+	if keepConns {
+		go openAllConns(db, maxConns)
 	}
 
 	handlerContext := &HandlerContext{
@@ -63,6 +76,7 @@ func NewServer(config *Config) *echo.Echo {
 	go handlerContext.Windows.poll(db, config.Region)
 	localWindowHub.Store(handlerContext.Windows)
 	configureImageStore(config.Region, handlerContext.ImageData)
+	configureSessionCache()
 	e.Use(IPBanMiddleware(handlerContext))
 
 	// deploy の疎通確認用。nginx の無い asia2 でもアプリを動かすようになり、nginx の index.html では確かめられないため。nginx は /internal を通さない
@@ -111,4 +125,27 @@ func NewServer(config *Config) *echo.Echo {
 	e.POST("/api/admin/posting-window", openPostingWindowHandler(handlerContext), AdminSessionMiddleware(handlerContext, true))
 
 	return e
+}
+
+// openAllConns は、接続を n 本まで同時に開いて待機させる（張る往復を負荷の前に済ませる）
+func openAllConns(db *sqlx.DB, n int) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	conns := make(chan *sql.Conn, n)
+	var wg sync.WaitGroup
+	for range n {
+		wg.Go(func() {
+			conn, err := db.Conn(ctx)
+			if err != nil {
+				log.Printf("failed to open a database connection: %v", err)
+				return
+			}
+			conns <- conn
+		})
+	}
+	wg.Wait()
+	close(conns)
+	for conn := range conns {
+		_ = conn.Close()
+	}
 }

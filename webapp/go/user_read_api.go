@@ -73,7 +73,11 @@ func (m *searchTextMemo) normalize(value string) string {
 const searchUsersQuery = `SELECT u.id, u.username, u.secret_key_hash, u.display_name, u.bio, u.profile_image_id, u.region, u.account_type, u.status
  FROM users u WHERE u.id = ANY(ARRAY(
   SELECT id FROM users WHERE status='active' AND id<>$1
-   AND (search_username IS NULL OR search_display_name IS NULL OR strpos(search_username, $2) > 0 OR strpos(search_display_name, $2) > 0)%s
+   AND (search_username IS NULL OR search_display_name IS NULL OR strpos(search_username, $2) > 0 OR strpos(search_display_name, $2) > 0)
+   AND NOT EXISTS (
+    SELECT 1 FROM block_relations b
+    WHERE (b.blocker_id = $1 AND b.blocked_id = users.id) OR (b.blocked_id = $1 AND b.blocker_id = users.id)
+   )%s
   ORDER BY username, id LIMIT $3
  )) ORDER BY u.username, u.id`
 
@@ -138,13 +142,10 @@ func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		ctx := c.Request().Context()
 		viewer := GetSession(c).UserID
-		blocked, err := getBlockedUserIDs(ctx, h.DB, viewer)
-		if err != nil {
-			return err
-		}
 		query := normalizeSearchText(input.Q)
-		// DB が絞った行のうち、外れるのはブロック中の人と、正規化が NULL で当たらない人だけ。足りなければ続きを読む
-		limit := 51 + len(blocked)
+		// ブロックはどちら向きでも、DB が絞るときに外す（europe1・america1 では別に読むと 1 往復 100ms 増える）。
+		// DB が絞った行のうち外れるのは、正規化が NULL で当たらない人だけ。足りなければ続きを読む
+		const limit = 51
 		matched := make([]User, 0, 51)
 		beforeUsername, beforeID := input.BeforeUsername, input.BeforeID
 	scan:
@@ -155,9 +156,6 @@ func searchUsersHandler(h *HandlerContext) echo.HandlerFunc {
 			}
 			for _, user := range users {
 				if !strings.Contains(searchTexts.normalize(user.Username), query) && !strings.Contains(searchTexts.normalize(user.DisplayName), query) {
-					continue
-				}
-				if blocked[user.ID] {
 					continue
 				}
 				matched = append(matched, user)

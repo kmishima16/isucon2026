@@ -1,5 +1,5 @@
 # 計測用 slow log（全クエリを記録）。最終盤に「計測を外す」ときは slow_query_log = 0 にする。
 [mysqld]
-slow_query_log      = 1
+slow_query_log      = 0
 slow_query_log_file = /var/log/mysql/mysql-slow.log
 long_query_time     = 0

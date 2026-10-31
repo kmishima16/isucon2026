@@ -128,6 +128,8 @@ func loginHandler(h *HandlerContext) echo.HandlerFunc {
 		if err != nil {
 			return err
 		}
+		// ログインは前のセッションを無効にする（sql/009_login_function.sql）
+		sessions.forgetUser(user.ID)
 		session := &Session{Token: token}
 		return c.JSON(http.StatusOK, loginResponse{Token: session.Token, User: newSessionUserResponse(user)})
 	}
@@ -211,6 +213,7 @@ func updateMeHandler(h *HandlerContext) echo.HandlerFunc {
 			return err
 		}
 		if input.Region != nil {
+			sessions.forgetUser(session.UserID)
 			h.Windows.UserChanged()
 		}
 		return c.JSON(http.StatusOK, updateMeResponse(newGetMeResponse(user)))
