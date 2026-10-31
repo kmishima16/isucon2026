@@ -26,6 +26,7 @@ func NewServer(config *Config) *echo.Echo {
 
 	e.Use(ActionLogMiddleware(config.LogLevel, os.Stdout))
 	e.Use(middleware.Recover())
+	e.Use(DrainRequestBodyMiddleware())
 	e.HTTPErrorHandler = APIErrorHandler
 
 	db, err := sqlx.Open("pgx", config.DatabaseDSN())
