@@ -169,6 +169,7 @@ func (s *imageStore) purgeLocal() {
 // purgeAll は、この台とほかの台の置き場所を空にする。届かなかった台のファイルは残るが、DB に行が無いので返らない
 func (s *imageStore) purgeAll(ctx context.Context) {
 	s.purgeLocal()
+	localPosts.reset()
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	var wg sync.WaitGroup
@@ -221,6 +222,8 @@ func registerImageStoreHandlers(mux *http.ServeMux) {
 			return
 		}
 		images.purgeLocal()
+		// 初期化で投稿は DB から消えるので、この台で持っていた今日の投稿も捨てる（local_post_state.go）
+		localPosts.reset()
 		// 初期化でセッションは DB から消えるので、覚えたものも捨てる（session_cache.go）
 		sessions.reset()
 		w.WriteHeader(http.StatusNoContent)

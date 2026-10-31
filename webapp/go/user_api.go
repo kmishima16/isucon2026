@@ -97,6 +97,8 @@ func registerHandler(h *HandlerContext) echo.HandlerFunc {
 		if err != nil {
 			return err
 		}
+		// この台で登録した人の今日の投稿は、この台のメモリで持つ（local_post_state.go）
+		localPosts.registered(user.ID)
 		return c.JSON(http.StatusCreated, registerResponse{SecretKey: secretKey, User: newSessionUserResponse(user)})
 	}
 }
@@ -213,6 +215,7 @@ func updateMeHandler(h *HandlerContext) echo.HandlerFunc {
 			return err
 		}
 		if input.Region != nil {
+			localPosts.forget(session.UserID)
 			sessions.forgetUser(session.UserID)
 			h.Windows.UserChanged()
 		}

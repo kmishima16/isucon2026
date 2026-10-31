@@ -122,6 +122,7 @@ func createPostHandler(h *HandlerContext) echo.HandlerFunc {
 			return err
 		}
 		post, user := created.Post, created.Author
+		localPosts.posted(userID, post.ID, h.localWindow(), post.PostingWindowID)
 		return c.JSON(http.StatusCreated, newPostResponse(post, user))
 	}
 }
@@ -150,6 +151,14 @@ func getMyCurrentPostHandler(h *HandlerContext) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		ctx := c.Request().Context()
 		userID := GetSession(c).UserID
+		// この台で登録した人が今日まだ投稿していなければ、DB に聞かずに 404 を返す（local_post_state.go）
+		if window := h.localWindow(); window == nil {
+			if _, _, ok := localPosts.counts(userID, ""); ok {
+				return NewAPIError(http.StatusNotFound, "post_not_found")
+			}
+		} else if active, _, ok := localPosts.counts(userID, window.LocalDate.Format(time.DateOnly)); ok && active == 0 {
+			return NewAPIError(http.StatusNotFound, "post_not_found")
+		}
 		var postID string
 		err := h.DB.GetContext(ctx, &postID, `
    SELECT p.id FROM posts p
@@ -342,6 +351,7 @@ func deletePostHandler(h *HandlerContext) echo.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			return err
 		}
+		localPosts.deleted(userID, post.ID)
 		return c.NoContent(http.StatusNoContent)
 	}
 }

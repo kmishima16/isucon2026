@@ -72,6 +72,7 @@ func NewSignerHandler() http.Handler {
 		_ = json.NewEncoder(w).Encode(signResponse{Sigs: signAll(keys, req.Items, req.Exp)})
 	})
 	registerImageStoreHandlers(mux)
+	registerWindowPushHandler(mux)
 	return mux
 }
 

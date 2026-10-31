@@ -75,9 +75,11 @@ func openPostingWindowHandler(h *HandlerContext) echo.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			return err
 		}
+		opened := &activeWindow{ID: window.ID, Region: window.Region, StartsAt: window.StartsAt, LocalDate: window.LocalDate, OnTimeDeadline: window.OnTimeDeadline}
 		if region == h.Config.Region {
-			h.Windows.set(&activeWindow{ID: window.ID, Region: window.Region, StartsAt: window.StartsAt})
+			h.Windows.set(opened)
 		}
+		pushWindowToRegion(ctx, opened)
 		return c.JSON(http.StatusCreated, openPostingWindowResponse{
 			ID: window.ID, Region: window.Region, LocalDate: window.LocalDate.Format(time.DateOnly),
 			StartsAt: window.StartsAt, OnTimeDeadline: window.OnTimeDeadline,

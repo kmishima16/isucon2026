@@ -28,6 +28,9 @@ type activeWindow struct {
 	ID       string    `db:"id"`
 	Region   string    `db:"region"`
 	StartsAt time.Time `db:"starts_at"`
+	// 台のメモリから「今の投稿期間」を返すため（local_post_state.go）
+	LocalDate      time.Time `db:"local_date"`
+	OnTimeDeadline time.Time `db:"on_time_deadline"`
 }
 
 type PostingWindowHub struct {
@@ -49,6 +52,12 @@ func (h *PostingWindowHub) snapshot() (*activeWindow, uint64, <-chan struct{}) {
 }
 
 func (h *PostingWindowHub) set(window *activeWindow) {
+	if window != nil {
+		// DB から読んだ時刻とほかの台から渡された時刻を、同じ投稿期間なら同じ値として比べる
+		normalized := *window
+		normalized.StartsAt, normalized.LocalDate, normalized.OnTimeDeadline = window.StartsAt.UTC(), window.LocalDate.UTC(), window.OnTimeDeadline.UTC()
+		window = &normalized
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if window == nil && h.current == nil {
@@ -82,7 +91,7 @@ func (h *PostingWindowHub) userChangedLocal() {
 
 func loadActiveWindow(ctx context.Context, db sqlx.QueryerContext, region string) (*activeWindow, error) {
 	var window activeWindow
-	err := sqlx.GetContext(ctx, db, &window, `SELECT id, region, starts_at FROM posting_windows WHERE region = $1 AND ended_at IS NULL`, region)
+	err := sqlx.GetContext(ctx, db, &window, `SELECT id, region, starts_at, local_date, on_time_deadline FROM posting_windows WHERE region = $1 AND ended_at IS NULL`, region)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

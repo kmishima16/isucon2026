@@ -26,6 +26,26 @@ type getCurrentPostingWindowResponse struct {
 
 func getCurrentPostingWindowHandler(h *HandlerContext) echo.HandlerFunc {
 	return func(c *echo.Context) error {
+		// この台で登録した人には、台の見張りと台のメモリの投稿から返す（local_post_state.go）
+		window := h.localWindow()
+		localDate := ""
+		if window != nil {
+			localDate = window.LocalDate.Format(time.DateOnly)
+		}
+		if active, deleted, ok := localPosts.counts(GetSession(c).UserID, localDate); ok {
+			if window == nil {
+				return c.JSON(http.StatusOK, getCurrentPostingWindowResponse{})
+			}
+			return c.JSON(http.StatusOK, getCurrentPostingWindowResponse{
+				Window: &currentPostingWindowResponse{
+					ID: window.ID, Region: window.Region, LocalDate: localDate,
+					StartsAt: window.StartsAt, OnTimeDeadline: window.OnTimeDeadline,
+				},
+				HasPosted:     active > 0,
+				CanPost:       active == 0 && deleted < 2 && !time.Now().Before(window.StartsAt),
+				DeletionCount: deleted,
+			})
+		}
 		var state struct {
 			PostingWindow
 			Active  int `db:"active"`
