@@ -8,3 +8,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-112922	059b5ba	true	18714	perf: エクスポートで画像を投稿の posted_at で区画を絞って読む	エクスポートのクエリのバッファ参照が減る。スコアへの効き目は小さい見込み	
 20261031-114331	84553e9	true	20072	feat: PostgreSQL のログを slp pg で読み、pprotein と make analyze でクエリごとの時間を見る	users の行ロックの待ちが上位から外れる。全クエリのログで asia2 の書き込みが増える	
 20261031-114926	de9cd43	true	27639	perf: 画像 URL の期限を 60 秒単位に切り下げ、同じ分の中は署名を使い回す (#5)	asia1 の JPEG のデコードと署名の CPU が減り、asia の人数とスコアが伸びる	
+20261031-115603	29f9663	true	28851	fix: BAN などで本文を読まずに返すときも本文を読み切り、403 が nginx で 502 にならないようにする (#6)	PUT /api/me/profile-image の 5xx が 0 になり 403 に変わる。スコアへの効き目は小さい	

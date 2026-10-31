@@ -11,10 +11,11 @@ import (
 )
 
 type HandlerContext struct {
-	DB      *sqlx.DB
-	Config  *Config
-	IPBans  *IPBanList
-	Windows *PostingWindowHub
+	DB        *sqlx.DB
+	Config    *Config
+	IPBans    *IPBanList
+	ImageData *ImageDataCache
+	Windows   *PostingWindowHub
 }
 
 func NewServer(config *Config) *echo.Echo {
@@ -26,6 +27,7 @@ func NewServer(config *Config) *echo.Echo {
 
 	e.Use(ActionLogMiddleware(config.LogLevel, os.Stdout))
 	e.Use(middleware.Recover())
+	e.Use(DrainRequestBodyMiddleware())
 	e.HTTPErrorHandler = APIErrorHandler
 
 	db, err := sqlx.Open("pgx", config.DatabaseDSN())
@@ -39,10 +41,11 @@ func NewServer(config *Config) *echo.Echo {
 	}
 
 	handlerContext := &HandlerContext{
-		DB:      db,
-		Config:  config,
-		IPBans:  &IPBanList{},
-		Windows: newPostingWindowHub(),
+		DB:        db,
+		Config:    config,
+		IPBans:    &IPBanList{},
+		ImageData: newImageDataCache(),
+		Windows:   newPostingWindowHub(),
 	}
 	go handlerContext.Windows.poll(db, config.Region)
 	e.Use(IPBanMiddleware(handlerContext))
