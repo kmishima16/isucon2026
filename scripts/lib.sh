@@ -16,6 +16,8 @@ source "$ROOT/isu.env"
 : "${SNAPSHOT_CURL_OPTS=}"          # snapshot / compare の curl に足すオプション（例: -k -H 'Host: pipe.u.isucon.local'）
 : "${LOCAL_PORT:=8080}"             # make local-up で手元に開くポート
 : "${LOCAL_UPSTREAM:=localhost:8080}"  # サイト設定の中のアプリの宛先（手元の nginx では app:8080 に差し替える）
+: "${SLOW_LOG_KIND:=my}"           # スローログの種類。my：MySQL の slow log を pt-query-digest で読む。pg：PostgreSQL のログを slp で読む（scripts/slp-pg.sh）
+: "${SLOW_LOG_PREFIX:=%m [%p] }"   # pg のとき、postgresql.conf の log_line_prefix と同じにする
 : "${PPROTEIN_VERSION:=v1.2.4}"
 : "${PPROTEIN_PORT:=9000}"          # Mac で開く pprotein の画面
 : "${PPROTEIN_AGENT_PORT=19000}"    # 各台の pprotein-agent（ssh トンネル経由でだけ届く）。空なら pprotein を使わない

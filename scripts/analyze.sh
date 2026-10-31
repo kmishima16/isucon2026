@@ -17,12 +17,27 @@ else
   warn "$NGINX_LOG が空です（access_log の設定、またはベンチ前に prebench したか確認）"
 fi
 
-info "pt-query-digest ($DB_HOST:$SLOW_LOG)"
-if rsh "$DB_HOST" "sudo test -s $SLOW_LOG"; then
-  rsh "$DB_HOST" "sudo pt-query-digest --limit 15 $SLOW_LOG" > "$LOG_DIR/$T-slow.txt"
-  sed -n '/^# Profile/,/^$/p' "$LOG_DIR/$T-slow.txt"
+if [ "$SLOW_LOG_KIND" = pg ]; then
+  info "slp pg ($DB_HOST:$SLOW_LOG) 合計時間の降順"
+  if [ ! -x "$ROOT/.tools/slp-bin" ]; then
+    warn "slp がありません（make pp-up で .tools/ に入る）"
+  elif rsh "$DB_HOST" "sudo test -s $SLOW_LOG"; then
+    raw="$(mktemp)"
+    rsh "$DB_HOST" "sudo gzip -c $SLOW_LOG" | gunzip >"$raw"
+    bash "$ROOT/scripts/slp-pg.sh" "$ROOT/.tools/slp-bin" "$SLOW_LOG_PREFIX" pg --bundle-where-in --bundle-values --sort sum-query-time -r --limit 30 --format tsv --file "$raw" >"$LOG_DIR/$T-slow.txt"
+    rm -f "$raw"
+    head -n 25 "$LOG_DIR/$T-slow.txt"
+  else
+    warn "$SLOW_LOG が空です（log_min_duration_statement が無効か、ログの場所が違う）"
+  fi
 else
-  warn "$SLOW_LOG が空です（slow log が無効か、ログの場所が違う）"
+  info "pt-query-digest ($DB_HOST:$SLOW_LOG)"
+  if rsh "$DB_HOST" "sudo test -s $SLOW_LOG"; then
+    rsh "$DB_HOST" "sudo pt-query-digest --limit 15 $SLOW_LOG" > "$LOG_DIR/$T-slow.txt"
+    sed -n '/^# Profile/,/^$/p' "$LOG_DIR/$T-slow.txt"
+  else
+    warn "$SLOW_LOG が空です（slow log が無効か、ログの場所が違う）"
+  fi
 fi
 
 if [ -s "$LOG_DIR/$T-pprof.txt" ]; then info "pprof"; head -n 25 "$LOG_DIR/$T-pprof.txt"; fi

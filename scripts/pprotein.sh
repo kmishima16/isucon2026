@@ -34,7 +34,25 @@ ensure_tools() {
   }
   fetch pprotein "https://github.com/kaz/pprotein/releases/download/v$v/pprotein_${v}_${os}_$arch.tar.gz"
   fetch alp "https://github.com/tkuchiki/alp/releases/download/$ALP_LOCAL_VERSION/alp_${os}_$arch.tar.gz"
-  fetch slp "https://github.com/tkuchiki/slp/releases/download/$SLP_LOCAL_VERSION/slp_${os}_$arch.tar.gz"
+  # 本物の slp は slp-bin に置く。pprotein は PATH の slp を「slp my ...」で呼ぶ（v1.2.4 で決め打ち）ので、
+  # SLOW_LOG_KIND=pg のときは .tools/slp を、PostgreSQL のログに読み替える scripts/slp-pg.sh への入口にする
+  if [ ! -x "$TOOLS/slp-bin" ]; then
+    if [ -f "$TOOLS/slp" ] && [ ! -L "$TOOLS/slp" ] && [ "$(head -c 2 "$TOOLS/slp")" != '#!' ]; then
+      mv "$TOOLS/slp" "$TOOLS/slp-bin"
+    else
+      local tmp; tmp="$(mktemp -d)"
+      info "ダウンロード: slp"
+      curl -fsSL --max-time 120 "https://github.com/tkuchiki/slp/releases/download/$SLP_LOCAL_VERSION/slp_${os}_$arch.tar.gz" | tar xz -C "$tmp" slp
+      mv "$tmp/slp" "$TOOLS/slp-bin"; rm -rf "$tmp"
+    fi
+  fi
+  rm -f "$TOOLS/slp"
+  if [ "$SLOW_LOG_KIND" = pg ]; then
+    printf '#!/usr/bin/env bash\nexec bash %q %q %q "$@"\n' "$ROOT/scripts/slp-pg.sh" "$TOOLS/slp-bin" "$SLOW_LOG_PREFIX" >"$TOOLS/slp"
+    chmod +x "$TOOLS/slp"
+  else
+    ln -s slp-bin "$TOOLS/slp"
+  fi
 }
 
 # 名前 手元のポート ホスト 先のポート
@@ -55,7 +73,8 @@ targets_json() {
   for h in $HOSTS; do
     i=$((i + 1))
     [ "$h" = "$NGINX_HOST" ] && item httplog "$h" "http://localhost:$((AGENT_BASE + i))/debug/log/httplog"
-    [ "$h" = "$DB_HOST" ] && item slowlog "$h" "http://localhost:$((AGENT_BASE + i))/debug/log/slowlog"
+    # SLOW_LOG が空なら集めない（agent が MySQL の既定の場所を開こうとして失敗する）
+    [ "$h" = "$DB_HOST" ] && [ -n "$SLOW_LOG" ] && item slowlog "$h" "http://localhost:$((AGENT_BASE + i))/debug/log/slowlog"
     if [ -n "${PPROTEIN_PPROF_PORT:-}" ] && in_list "$h" "$APP_HOSTS"; then
       for p in $PPROTEIN_PPROF_PATHS; do item pprof "$h-$(basename "$p")" "http://localhost:$((PPROF_BASE + i))$p"; done
     fi
