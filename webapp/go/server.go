@@ -11,9 +11,10 @@ import (
 )
 
 type HandlerContext struct {
-	DB     *sqlx.DB
-	Config *Config
-	IPBans *IPBanList
+	DB      *sqlx.DB
+	Config  *Config
+	IPBans  *IPBanList
+	Windows *PostingWindowHub
 }
 
 func NewServer(config *Config) *echo.Echo {
@@ -38,10 +39,12 @@ func NewServer(config *Config) *echo.Echo {
 	}
 
 	handlerContext := &HandlerContext{
-		DB:     db,
-		Config: config,
-		IPBans: &IPBanList{},
+		DB:      db,
+		Config:  config,
+		IPBans:  &IPBanList{},
+		Windows: newPostingWindowHub(),
 	}
+	go handlerContext.Windows.poll(db, config.Region)
 	e.Use(IPBanMiddleware(handlerContext))
 
 	e.POST("/api/initialize", initializeHandler(handlerContext))

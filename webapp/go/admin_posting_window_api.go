@@ -43,7 +43,8 @@ func openPostingWindowHandler(h *HandlerContext) echo.HandlerFunc {
 			return err
 		}
 		defer tx.Rollback()
-		if _, err := tx.ExecContext(ctx, `LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+		// 同じリージョンの開始どうしだけを並べる。users の表ロックは全員分の通知を作るためのもので、通知を作らなくなったので要らない
+		if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtext('posting_window:' || $1))`, region); err != nil {
 			return err
 		}
 		var conflict bool
@@ -67,18 +68,15 @@ func openPostingWindowHandler(h *HandlerContext) echo.HandlerFunc {
   `, windowID, region, localDate, startsAt, startsAt.Add(time.Duration(seconds)*time.Second)); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `
-   INSERT INTO notifications (id, user_id, posting_window_id, created_at)
-   SELECT gen_random_uuid()::text, id, $2, $3 FROM users WHERE region = $1 AND status = 'active'
-  `, region, windowID, startsAt); err != nil {
-			return err
-		}
 		window, err := getPostingWindow(ctx, tx, windowID)
 		if err != nil {
 			return err
 		}
 		if err := tx.Commit(); err != nil {
 			return err
+		}
+		if region == h.Config.Region {
+			h.Windows.set(&activeWindow{ID: window.ID, Region: window.Region, StartsAt: window.StartsAt})
 		}
 		return c.JSON(http.StatusCreated, openPostingWindowResponse{
 			ID: window.ID, Region: window.Region, LocalDate: window.LocalDate.Format(time.DateOnly),

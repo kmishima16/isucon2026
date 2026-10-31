@@ -230,6 +230,9 @@ func updateMeHandler(h *HandlerContext) echo.HandlerFunc {
 		if err := tx.Commit(); err != nil {
 			return err
 		}
+		if input.Region != nil {
+			h.Windows.UserChanged()
+		}
 		return c.JSON(http.StatusOK, updateMeResponse(newGetMeResponse(user)))
 	}
 }
