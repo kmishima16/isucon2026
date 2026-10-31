@@ -62,12 +62,14 @@ func getImageHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 
 		// 削除状態を毎回確認する。即時反映も5秒以内の許容範囲に含まれる。
+		// 中身はこの台が持っていれば読まない（image_data_cache.go）
+		cached, haveData := h.ImageData.get(input.ImageID)
 		var object struct {
 			Data      []byte `db:"data"`
 			MediaType string `db:"media_type"`
 		}
 		err = h.DB.GetContext(ctx, &object, `
-   SELECT i.data, i.media_type
+   SELECT CASE WHEN $2 THEN NULL ELSE i.data END AS data, i.media_type
    FROM image_objects i JOIN users u ON u.id = i.owner_user_id AND u.status = 'active'
    WHERE i.id = $1 AND (
      u.profile_image_id = i.id
@@ -82,12 +84,17 @@ func getImageHandler(h *HandlerContext) echo.HandlerFunc {
        WHERE r.image_id = i.id AND r.reactor_id = u.id AND r.replaced_at IS NULL AND r.deleted_at IS NULL
      )
    )
-  `, input.ImageID)
+  `, input.ImageID, haveData)
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewAPIError(http.StatusForbidden, "image_forbidden")
 		}
 		if err != nil {
 			return err
+		}
+		if haveData {
+			object.Data = cached
+		} else {
+			h.ImageData.set(input.ImageID, object.Data)
 		}
 		if exp <= time.Now().Unix() {
 			return NewAPIError(http.StatusForbidden, "image_forbidden")
