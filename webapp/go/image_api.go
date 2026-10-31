@@ -40,19 +40,14 @@ func getImageHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 
 		ctx := c.Request().Context()
-		var secretKeyHash string
-		err = h.DB.GetContext(ctx, &secretKeyHash, `
-   SELECT u.secret_key_hash
-   FROM image_objects i JOIN users u ON u.id = i.owner_user_id
-   WHERE i.id = $1 AND u.status = 'active'
-  `, input.ImageID)
+		owner, err := getImageOwnerKey(ctx, h.DB, input.ImageID)
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewAPIError(http.StatusForbidden, "image_forbidden")
 		}
 		if err != nil {
 			return err
 		}
-		key, err := imageSigningKey(secretKeyHash)
+		key, err := imageSigningKey(owner.SecretKeyHash)
 		if err != nil {
 			return err
 		}
@@ -71,7 +66,7 @@ func getImageHandler(h *HandlerContext) echo.HandlerFunc {
 		err = h.DB.GetContext(ctx, &object, `
    SELECT CASE WHEN $2 THEN NULL ELSE i.data END AS data, i.media_type
    FROM image_objects i JOIN users u ON u.id = i.owner_user_id AND u.status = 'active'
-   WHERE i.id = $1 AND (
+   WHERE i.id = $1 AND i.created_at = $3 AND (
      u.profile_image_id = i.id
      OR EXISTS (
        SELECT 1 FROM posts p
@@ -84,7 +79,7 @@ func getImageHandler(h *HandlerContext) echo.HandlerFunc {
        WHERE r.image_id = i.id AND r.reactor_id = u.id AND r.replaced_at IS NULL AND r.deleted_at IS NULL
      )
    )
-  `, input.ImageID, haveData)
+  `, input.ImageID, haveData, owner.CreatedAt)
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewAPIError(http.StatusForbidden, "image_forbidden")
 		}
