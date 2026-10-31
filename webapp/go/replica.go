@@ -194,6 +194,8 @@ func openReplicaReads(e *echo.Echo, config *Config, primary *HandlerContext) *re
 	probeDB.SetConnMaxIdleTime(0)
 	replica := *primary
 	replica.DB = replicaDB
+	// 読みだけのハンドラーは ReadDB で読む（asia1 の複製、1a24c58）。差し替えないと、関所で待った後も往復 100ms 先の主の DB を読む
+	replica.ReadDB = replicaDB
 	routes.replica = &replica
 	routes.fence = newWALFence(probeDB, replicaDB)
 	return routes
