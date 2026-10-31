@@ -23,3 +23,27 @@ func DrainRequestBodyMiddleware() echo.MiddlewareFunc {
 		}
 	}
 }
+
+// 画像の本文（数百 KB）を io.ReadAll で読むと、足りなくなるたびに取り直してゼロで埋め、
+// asia1 のプロフィール画像の CPU の 8 割がこれだった（17:26 の pprof）。大きさが分かるときは一度に確保する
+func readAllSized(r io.Reader, size int64) ([]byte, error) {
+	if size <= 0 || size > maxDrainedRequestBody {
+		return io.ReadAll(r)
+	}
+	data := make([]byte, 0, size+1)
+	for {
+		n, err := r.Read(data[len(data):cap(data)])
+		data = data[:len(data)+n]
+		if err == io.EOF {
+			return data, nil
+		}
+		if err != nil {
+			return data, err
+		}
+		if len(data) == cap(data) {
+			// 申告より長い本文は、残りを今までどおり読む
+			rest, err := io.ReadAll(r)
+			return append(data, rest...), err
+		}
+	}
+}

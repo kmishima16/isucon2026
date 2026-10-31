@@ -10,6 +10,16 @@ import (
 	"github.com/labstack/echo/v5"
 )
 
+func TestReadAllSized(t *testing.T) {
+	body := bytes.Repeat([]byte("x"), 300000)
+	for _, size := range []int64{-1, 0, 10, 300000, 400000} {
+		got, err := readAllSized(bytes.NewReader(body), size)
+		if err != nil || !bytes.Equal(got, body) {
+			t.Fatalf("size=%d: got %d bytes err=%v", size, len(got), err)
+		}
+	}
+}
+
 type countingBody struct {
 	r    io.Reader
 	read int

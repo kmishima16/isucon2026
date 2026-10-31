@@ -150,7 +150,7 @@ func (s *imageStore) fetch(ctx context.Context, host, id string) ([]byte, error)
 		_, _ = io.Copy(io.Discard, res.Body)
 		return nil, fmt.Errorf("fetch image %s from %s: %s", id, host, res.Status)
 	}
-	return io.ReadAll(res.Body)
+	return readAllSized(res.Body, res.ContentLength)
 }
 
 // purgeLocal は、この台の置き場所とメモリを空にする（初期化）。置くのは走行中の投稿の画像だけで、初期化の後は DB から参照されない
