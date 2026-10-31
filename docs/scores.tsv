@@ -49,3 +49,4 @@ time	rev	pass	score	memo	expect	fail
 20261031-170050	4e34a5e	true	102166	chore: ベンチ結果を記録する	エクスポートで画像の表を引かず、画像の判定で区画を 1 つに絞り、DB の上位 1・2 位が減る	
 20261031-170503	0a65c9b	true	99020	perf: europe1・america1 の DB の接続を 15 本から 60 本に増やす	asia2 の max_connections 200、europe1・america1 の接続 60 本で、欧米の 1 秒あたりの件数の天井が上がる	
 20261031-170916	0f9d3af	true	107803	fix: europe1・america1 の DB の接続を 60 本から 30 本に減らし、asia2 の取り合いとメモリを抑える	europe1・america1 の接続を 30 本にし、欧米の伸びを残したまま asia2 の取り合いとメモリを抑える	
+20261031-171219	a370e15	true	111232	chore: ベンチ結果を記録する	画像の判定で区画に分かれた画像の表を引かず、DB の 1 位が減る	
