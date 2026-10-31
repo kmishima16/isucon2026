@@ -122,7 +122,7 @@ func TestNotificationsFromPostingWindowHub(t *testing.T) {
 	gone := subscribe("gone", 3*time.Second)
 	time.Sleep(200 * time.Millisecond)
 	db.MustExec(`UPDATE users SET status = 'deleted' WHERE id = 'gone'`)
-	h.Windows.UserChanged()
+	h.Windows.UserChanged("gone")
 	if got := <-gone; got.body != "" || !got.closed {
 		t.Fatalf("deleted user stream: %+v", got)
 	}
@@ -130,7 +130,7 @@ func TestNotificationsFromPostingWindowHub(t *testing.T) {
 
 func deleteAccountHandlerForTest(h *HandlerContext) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		h.Windows.UserChanged()
+		h.Windows.UserChanged(c.QueryParam("user"))
 		return c.NoContent(http.StatusNoContent)
 	}
 }

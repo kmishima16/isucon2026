@@ -217,7 +217,7 @@ func updateMeHandler(h *HandlerContext) echo.HandlerFunc {
 		if input.Region != nil {
 			localPosts.forget(session.UserID)
 			sessions.forgetUser(session.UserID)
-			h.Windows.UserChanged()
+			h.Windows.UserChanged(session.UserID)
 		}
 		return c.JSON(http.StatusOK, updateMeResponse(newGetMeResponse(user)))
 	}

@@ -36,12 +36,15 @@ type activeWindow struct {
 type PostingWindowHub struct {
 	mu      sync.Mutex
 	current *activeWindow
+	// 全員に確かめ直させる世代（初期化）
 	userGen uint64
-	changed chan struct{}
+	// その利用者だけに確かめ直させる世代（退会・リージョンの移動）。全員分を上げると、変更のたびにつながっている全員が DB を読みに行く
+	userGens map[string]uint64
+	changed  chan struct{}
 }
 
 func newPostingWindowHub() *PostingWindowHub {
-	return &PostingWindowHub{changed: make(chan struct{})}
+	return &PostingWindowHub{userGens: map[string]uint64{}, changed: make(chan struct{})}
 }
 
 // snapshot は今の投稿期間と、次に何か変わったら閉じるチャネルを返す
@@ -49,6 +52,13 @@ func (h *PostingWindowHub) snapshot() (*activeWindow, uint64, <-chan struct{}) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	return h.current, h.userGen, h.changed
+}
+
+// snapshotFor は、snapshot に加えて、その利用者について確かめ直しが要るかを表す世代を返す
+func (h *PostingWindowHub) snapshotFor(userID string) (*activeWindow, uint64, <-chan struct{}) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.current, h.userGen + h.userGens[userID], h.changed
 }
 
 func (h *PostingWindowHub) set(window *activeWindow) {
@@ -74,17 +84,23 @@ func (h *PostingWindowHub) set(window *activeWindow) {
 // 内部の窓口（/internal/user-changed）が、ほかの台での変更をこの台の利用者に伝えるために使う
 var localWindowHub atomic.Pointer[PostingWindowHub]
 
-// この台で退会やリージョンの変更があったら、つながっている利用者に自分の状態を確かめ直させる。
-// asia は asia1 と asia2 の 2 台で受けるので、SSE がもう 1 台につながっている利用者にも伝える
-func (h *PostingWindowHub) UserChanged() {
-	h.userChangedLocal()
-	images.notifyUserChanged()
+// この台で退会やリージョンの変更があったら、その利用者の SSE に自分の状態を確かめ直させる。
+// SSE は投稿期間の開始のときに DB を読まず、接続のときのリージョンと登録の時刻で通知を決めるので、この知らせが届かないと古い状態のまま通知してしまう。
+// PATCH /api/me は RegionMiddleware を通らず、どの台でも受けうるので、全台に知らせ、届くのを待ってから応答する
+func (h *PostingWindowHub) UserChanged(userID string) {
+	h.userChangedLocal(userID)
+	images.notifyUserChanged(userID)
 }
 
-func (h *PostingWindowHub) userChangedLocal() {
+// userChangedLocal は、userID の SSE に確かめ直させる。userID が空なら全員に確かめ直させる
+func (h *PostingWindowHub) userChangedLocal(userID string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.userGen++
+	if userID == "" {
+		h.userGen++
+	} else {
+		h.userGens[userID]++
+	}
 	close(h.changed)
 	h.changed = make(chan struct{})
 }

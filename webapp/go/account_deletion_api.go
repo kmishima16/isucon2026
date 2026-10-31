@@ -36,7 +36,7 @@ func deleteAccountHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		localPosts.forget(userID)
 		sessions.forgetUser(userID)
-		h.Windows.UserChanged()
+		h.Windows.UserChanged(userID)
 		return c.NoContent(http.StatusNoContent)
 	}
 }

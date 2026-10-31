@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -170,6 +171,10 @@ func (s *imageStore) purgeLocal() {
 func (s *imageStore) purgeAll(ctx context.Context) {
 	s.purgeLocal()
 	localPosts.reset()
+	// 初期化で利用者は DB から消えるので、つながっている SSE に DB で確かめ直させる（接続のときの状態のまま通知しない）
+	if hub := localWindowHub.Load(); hub != nil {
+		hub.userChangedLocal("")
+	}
 	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	var wg sync.WaitGroup
@@ -211,8 +216,15 @@ func registerImageStoreHandlers(mux *http.ServeMux) {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
+		// 空なら、利用者を絞らない古い知らせ（全台を順に deploy する間に、古い版の台から届く）として全員に確かめ直させる
+		userID := r.URL.Query().Get("user")
 		if hub := localWindowHub.Load(); hub != nil {
-			hub.userChangedLocal()
+			hub.userChangedLocal(userID)
+		}
+		if userID != "" {
+			// ほかの台で退会やリージョンの変更を受けたとき、この台で覚えているセッションと今日の投稿は古くなる（session_cache.go・local_post_state.go）
+			sessions.forgetUser(userID)
+			localPosts.forget(userID)
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -226,17 +238,22 @@ func registerImageStoreHandlers(mux *http.ServeMux) {
 		localPosts.reset()
 		// 初期化でセッションは DB から消えるので、覚えたものも捨てる（session_cache.go）
 		sessions.reset()
+		// 初期化で利用者は DB から消えるので、つながっている SSE に DB で確かめ直させる（接続のときの状態のまま通知しない）
+		if hub := localWindowHub.Load(); hub != nil {
+			hub.userChangedLocal("")
+		}
 		w.WriteHeader(http.StatusNoContent)
 	})
 }
 
-// notifyUserChanged は、同じリージョンのほかの台に、つながっている利用者の状態を確かめ直させる（待たない）
-func (s *imageStore) notifyUserChanged() {
-	for _, peer := range s.regionPeers {
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-			defer cancel()
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, peer+"/internal/user-changed", nil)
+// notifyUserChanged は、ほかの全台に、その利用者の SSE の状態を確かめ直させる。届くのを待つのは 1 秒まで
+func (s *imageStore) notifyUserChanged(userID string) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	var wg sync.WaitGroup
+	for _, peer := range s.peers {
+		wg.Go(func() {
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, peer+"/internal/user-changed?user="+url.QueryEscape(userID), nil)
 			if err != nil {
 				return
 			}
@@ -247,6 +264,7 @@ func (s *imageStore) notifyUserChanged() {
 			}
 			_, _ = io.Copy(io.Discard, res.Body)
 			res.Body.Close()
-		}()
+		})
 	}
+	wg.Wait()
 }
