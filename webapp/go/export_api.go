@@ -42,10 +42,12 @@ func exportPostsHandler(h *HandlerContext) echo.HandlerFunc {
 			ImageHost *string `db:"image_host"`
 		}
 		// image_objects は created_at の月で分けてあり、id だけでは全区画を引く。投稿の画像は posted_at で書くので区画を 1 つに絞れる
+		// 投稿の件数を 1 件と見積もって、期間の表を投稿ごとに全件なめていた（363 件の人で 1 回 20 万行、温まった状態で 30ms のうち 24ms）。
+		// OFFSET 0 で結合の形を変えさせず、投稿ごとに期間を主キーで 1 行引く
 		if err := h.DB.SelectContext(ctx, &posts, `
    SELECT `+postColumns+`, CASE WHEN i.id = ANY($2) THEN NULL ELSE i.data END AS image_data, l.host AS image_host
    FROM posts p
-   JOIN posting_windows w ON w.id = p.posting_window_id
+   CROSS JOIN LATERAL (SELECT on_time_deadline, ended_at FROM posting_windows w WHERE w.id = p.posting_window_id OFFSET 0) w
    JOIN image_objects i ON i.id = p.image_id AND i.created_at = p.posted_at
    LEFT JOIN image_object_locations l ON l.id = p.image_id
    WHERE p.author_id = $1 AND p.deleted_at IS NULL
