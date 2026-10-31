@@ -79,6 +79,15 @@ func TestExportUsesImageDataCache(t *testing.T) {
 			t.Fatalf("warm export differs at %s: %q vs %q", name, warm[name], body)
 		}
 	}
+	// 全部持っているときは画像の表を引かない（画像の行の時刻をずらして結合が外れても、投稿は全部出る）
+	db.MustExec(`UPDATE image_objects SET created_at = created_at + interval '1 second'`)
+	light := export()
+	for name, body := range cold {
+		if light[name] != body {
+			t.Fatalf("export without image rows differs at %s: %q vs %q", name, light[name], body)
+		}
+	}
+	db.MustExec(`UPDATE image_objects SET created_at = created_at - interval '1 second'`)
 	// 一部だけ持っているときも、持っていない分は DB から読む
 	h.ImageData = newImageDataCache()
 	h.ImageData.set("i1", []byte("ONE"))

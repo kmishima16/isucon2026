@@ -49,10 +49,33 @@ func exportPostsHandler(h *HandlerContext) echo.HandlerFunc {
 			ImageData []byte  `db:"image_data"`
 			ImageHost *string `db:"image_host"`
 		}
+		// 画像の中身が全部手元にあるときは、画像の表と置き場所の表を引かずに投稿だけを読む。
+		// 363 件の人で、読む 5100 ブロックのうち 8 割ほどが、中身を使わない image_objects（36 区画）と image_object_locations の分だった
+		allLocal := len(cached) == len(imageIDs)
+		if allLocal {
+			if err := h.DB.SelectContext(ctx, &posts, `
+   SELECT `+postColumns+`
+   FROM posts p
+   CROSS JOIN LATERAL (SELECT on_time_deadline, ended_at FROM posting_windows w WHERE w.id = p.posting_window_id OFFSET 0) w
+   WHERE p.author_id = $1 AND p.deleted_at IS NULL
+   ORDER BY p.posted_at, p.id
+  `, userID); err != nil {
+				return err
+			}
+			// 画像の id を読んだ後に同じ人が投稿していたら、その画像は手元に無いので今までの形で読み直す
+			for _, post := range posts {
+				if _, ok := cached[post.ImageID]; !ok {
+					allLocal = false
+					break
+				}
+			}
+		}
 		// image_objects は created_at の月で分けてあり、id だけでは全区画を引く。投稿の画像は posted_at で書くので区画を 1 つに絞れる
 		// 投稿の件数を 1 件と見積もって、期間の表を投稿ごとに全件なめていた（363 件の人で 1 回 20 万行、温まった状態で 30ms のうち 24ms）。
 		// OFFSET 0 で結合の形を変えさせず、投稿ごとに期間を主キーで 1 行引く
-		if err := h.DB.SelectContext(ctx, &posts, `
+		if !allLocal {
+			posts = posts[:0]
+			if err := h.DB.SelectContext(ctx, &posts, `
    SELECT `+postColumns+`, CASE WHEN i.id = ANY($2) THEN NULL ELSE i.data END AS image_data, l.host AS image_host
    FROM posts p
    CROSS JOIN LATERAL (SELECT on_time_deadline, ended_at FROM posting_windows w WHERE w.id = p.posting_window_id OFFSET 0) w
@@ -61,7 +84,8 @@ func exportPostsHandler(h *HandlerContext) echo.HandlerFunc {
    WHERE p.author_id = $1 AND p.deleted_at IS NULL
    ORDER BY p.posted_at, p.id
   `, userID, cachedIDs); err != nil {
-			return err
+				return err
+			}
 		}
 		for i := range posts {
 			switch data, ok := cached[posts[i].ImageID]; {
