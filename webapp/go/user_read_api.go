@@ -53,12 +53,14 @@ func (m *searchTextMemo) normalize(value string) string {
 	if ok {
 		return normalized
 	}
-	normalized = normalizeSearchText(value)
+	// 検索の候補は、検索 1 回分の大きな文字列（約 430KB）の部分文字列で渡ってくる。そのまま覚えると回ごとの文字列が手放されないので、複製して覚える
+	key := strings.Clone(value)
+	normalized = strings.Clone(normalizeSearchText(value))
 	m.mu.Lock()
 	if len(m.entries) >= m.limit {
 		m.entries = make(map[string]string)
 	}
-	m.entries[value] = normalized
+	m.entries[key] = normalized
 	m.mu.Unlock()
 	return normalized
 }

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v5"
@@ -346,6 +347,38 @@ func TestSelectSearchCandidatesMatchesRowQuery(t *testing.T) {
 			if got[i] != want[i] {
 				t.Fatalf("%+v: candidate %d = %#v, want %#v", tc, i, got[i], want[i])
 			}
+		}
+	}
+}
+
+func TestSearchTextMemoDoesNotKeepCallerStrings(t *testing.T) {
+	// 検索の候補は、検索 1 回分の大きな文字列の部分文字列で渡ってくる。覚えた値がそれを指したままだと、回ごとの文字列が手放されない
+	packed := strings.Repeat("x", 1<<16) + "Taro" + "ｔａｒｏ"
+	ascii := packed[1<<16 : 1<<16+4]
+	wide := packed[1<<16+4:]
+	m := newSearchTextMemo(10)
+	m.normalize(ascii)
+	m.normalize(wide)
+	lo := uintptr(unsafe.Pointer(unsafe.StringData(packed)))
+	hi := lo + uintptr(len(packed))
+	inPacked := func(s string) bool {
+		if s == "" {
+			return false
+		}
+		p := uintptr(unsafe.Pointer(unsafe.StringData(s)))
+		return p >= lo && p < hi
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if len(m.entries) != 2 {
+		t.Fatalf("memo has %d entries, want 2", len(m.entries))
+	}
+	for key, normalized := range m.entries {
+		if inPacked(key) {
+			t.Fatalf("memo key %q points into the caller's string", key)
+		}
+		if inPacked(normalized) {
+			t.Fatalf("memo value %q points into the caller's string", normalized)
 		}
 	}
 }
