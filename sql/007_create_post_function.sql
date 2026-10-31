@@ -38,6 +38,11 @@ BEGIN
       RAISE EXCEPTION 'post_slot_unavailable' USING ERRCODE = 'IR409';
     END IF;
   END IF;
+  -- 時刻はアプリが DB に送る前に決めている。待っている間に次の期間が始まると開始より前になり、409 を返していた（前の手順はロックの後に時刻を取っていた）。
+  -- 開始の時刻も DB の時計で決まるので、取り直せば開始より後になる。画像・区画の表・投稿には同じ取り直した時刻を入れる
+  IF p_posted_at < v_starts_at THEN
+    p_posted_at := clock_timestamp();
+  END IF;
   SELECT count(*) FILTER (WHERE p.deleted_at IS NULL), count(*) FILTER (WHERE p.deleted_at IS NOT NULL)
   INTO v_active, v_deleted
   FROM posts p JOIN posting_windows w ON w.id = p.posting_window_id
