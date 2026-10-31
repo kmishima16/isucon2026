@@ -55,33 +55,13 @@ func getFeedHandler(h *HandlerContext) echo.HandlerFunc {
 		if err != nil {
 			return err
 		}
-		following := map[string]bool{}
-		if input.Feed == "following" {
-			var followeeIDs []string
-			if err := h.DB.SelectContext(ctx, &followeeIDs, `SELECT followee_id FROM follows WHERE follower_id = $1`, viewer.ID); err != nil {
-				return err
-			}
-			for _, id := range followeeIDs {
-				following[id] = true
-			}
-		}
 		beforePostedAt, beforeID := input.BeforePostedAt, input.BeforeID
 		if ranked {
 			beforePostedAt, beforeID = nil, ""
 		}
-		posts, err := selectPostsWithAuthor(ctx, h.DB, `
-   AND p.author_id <> $1 AND w.ended_at IS NULL
-   AND ($2::timestamptz IS NULL OR (p.posted_at, p.id) < ($2, $3))
-   ORDER BY p.posted_at DESC, p.id DESC
-  `, viewer.ID, beforePostedAt, beforeID)
+		candidates, err := selectFeedCandidates(ctx, h.DB, viewer, input.Feed, beforePostedAt, beforeID)
 		if err != nil {
 			return err
-		}
-		candidates := make([]PostWithAuthor, 0)
-		for _, post := range posts {
-			if viewer.canView(post.Post) && matchesFeed(viewer, following, post.Post, input.Feed) {
-				candidates = append(candidates, post)
-			}
 		}
 		var scores map[string]int64
 		if ranked {
@@ -113,6 +93,58 @@ func getFeedHandler(h *HandlerContext) echo.HandlerFunc {
 		}
 		return c.JSON(http.StatusOK, getFeedResponse{Items: items, HasMore: hasMore})
 	}
+}
+
+func selectFeedCandidates(ctx context.Context, db sqlx.QueryerContext, viewer viewerContext, feed string, beforePostedAt *time.Time, beforeID string) ([]PostWithAuthor, error) {
+	conditions := `
+   AND p.author_id <> $1 AND w.ended_at IS NULL
+   AND ($2::timestamptz IS NULL OR (p.posted_at, p.id) < ($2, $3))`
+	args := []any{viewer.ID, beforePostedAt, beforeID}
+	// 開いている投稿期間の投稿を全部読んでから Go で絞ると、利用者が増えるほど 1 回で読む投稿も増える。
+	// matchesFeed は投稿者か公開範囲だけで決まるので、同じ条件を SQL にも入れて先に絞る。ブロックなどは canView に任せたままにする
+	following := map[string]bool{}
+	if feed == "public" {
+		conditions += ` AND p.visibility = 'public'`
+	} else {
+		var authorIDs []string
+		switch feed {
+		case "following":
+			if err := sqlx.SelectContext(ctx, db, &authorIDs, `SELECT followee_id FROM follows WHERE follower_id = $1`, viewer.ID); err != nil {
+				return nil, err
+			}
+			for _, id := range authorIDs {
+				following[id] = true
+			}
+		case "friends":
+			for id := range viewer.Friends {
+				authorIDs = append(authorIDs, id)
+			}
+		case "friends-of-friends":
+			for id := range viewer.FriendsOfFriends {
+				if !viewer.Friends[id] {
+					authorIDs = append(authorIDs, id)
+				}
+			}
+		}
+		if len(authorIDs) == 0 {
+			return make([]PostWithAuthor, 0), nil
+		}
+		conditions += ` AND p.author_id = ANY($4)`
+		args = append(args, authorIDs)
+	}
+	posts, err := selectPostsWithAuthor(ctx, db, conditions+`
+   ORDER BY p.posted_at DESC, p.id DESC
+  `, args...)
+	if err != nil {
+		return nil, err
+	}
+	candidates := make([]PostWithAuthor, 0)
+	for _, post := range posts {
+		if viewer.canView(post.Post) && matchesFeed(viewer, following, post.Post, feed) {
+			candidates = append(candidates, post)
+		}
+	}
+	return candidates, nil
 }
 
 func rankedBefore(score int64, post Post, beforeScore int64, beforePostedAt time.Time, beforeID string) bool {
